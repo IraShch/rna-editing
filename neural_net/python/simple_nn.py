@@ -27,9 +27,9 @@ BaseWrapper.get_params = custom_get_params
 # prepares data for learning
 def split_data(seed, percent_train, validate_test_ratio):
     # load initial noise set
-    data_dir = "/Users/bioinformaticshub/Documents/Ira/soft/neural_net/data/BT20/"
-    noise_X_file_name = data_dir + "BT20_N1_noise_X.tsv"
-    noise_y_file_name = data_dir + "BT20_N1_noise_y.tsv"
+    data_dir = "/Users/bioinformaticshub/Documents/Ira/soft/neural_net/data/"
+    noise_X_file_name = data_dir + "BT20/BT20_N1_noise_X.tsv"
+    noise_y_file_name = data_dir + "BT20/BT20_N1_noise_y.tsv"
     X = pd.read_table(noise_X_file_name)
     y = pd.read_table(noise_y_file_name)
 
