@@ -15,7 +15,7 @@ library(ggplot2)
 library(dplyr)
 library(tidyr)
 
-data_file_name <- "/Users/bioinformaticshub/Documents/Ira/soft/neural_net/50nodes_test.tsv"
+data_file_name <- "/Users/bioinformaticshub/Documents/Ira/soft/neural_net/rna-editing/neural_net/50nodes_test.tsv"
 result_data <- read_tsv(data_file_name)
 ```
 
@@ -29,11 +29,11 @@ Data is splitted: 85% train and 15% test.
 
 ### Learning process
 
-![loss](/Users/bioinformaticshub/Documents/Ira/soft/neural_net/plots/test_50/50nodes_learning_loss.png)
+![](/Users/bioinformaticshub/Documents/Ira/soft/neural_net/plots/test_50/50nodes_learning_loss.png)
 
-![mse](/Users/bioinformaticshub/Documents/Ira/soft/neural_net/plots/test_50/50nodes_learning_mse.png)
+![](/Users/bioinformaticshub/Documents/Ira/soft/neural_net/plots/test_50/50nodes_learning_mse.png)
 
-![mrn](/Users/bioinformaticshub/Documents/Ira/soft/neural_net/plots/test_50/50nodes_learning_mrn.png)
+![](/Users/bioinformaticshub/Documents/Ira/soft/neural_net/plots/test_50/50nodes_learning_mrn.png)
 
 ### Squared errors
 
