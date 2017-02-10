@@ -28,7 +28,7 @@ def make_sets(file_name):
     return chr_dict
 
 
-def add_info(filename, basename, outname):
+def add_info(filename, basename, outname, is_clean):
     # read all positions from file
     positions = make_sets(filename)
 
@@ -93,7 +93,13 @@ def add_info(filename, basename, outname):
             if chrom in positions and int(l[1]) in positions[chrom]:
                 current_line = positions[chrom][int(l[1])].split('\t')
                 if len(current_line) < 12:
-                    positions[chrom][int(l[1])] += '\tTRUE'
+                    if not is_clean:
+                        positions[chrom][int(l[1])] += '\tTRUE'
+                    else:
+                        counts = {'A': float(current_line[4]), 'C': float(current_line[5]),
+                                  'G': float(current_line[6]), 'T': float(current_line[7])}
+                        if current_line[3] == l[3] and counts[l[4]] > 0:
+                            positions[chrom][int(l[1])] += '\tTRUE'
 
     # add flags to non-snp positions
     for chrom in positions:
@@ -124,6 +130,9 @@ def main():
                                   'input file: tab-delimited file, 1st column - chromosome, 2nd - position')
     input_files.add_argument('-r', '--reference', help='genome assembly version (37 or 38)',
                              choices=[37, 38], required=True, type=int)
+    input_files.add_argument('-c', '--clean', help='if dbSNP contains only one type of change per position '
+                                                   'and doesn\'t have indels',
+                             action='store_true')
     out_files = parser.add_argument_group('output')
     out_files.add_argument('-d', '--outdir', help='directory to write the output', required=True)
     out_files.add_argument('-o', '--addname', help='suffix to add to the outname')
@@ -131,11 +140,17 @@ def main():
     args = parser.parse_args()
 
     input_files = args.input[0].split(',')
+    is_clean = args.clean
     if args.reference == 37:
-        print "No dbSNP for this genome version!"
-        return 1
+        if is_clean:
+            basename = '/home/schukina/data/common/dbSNP37_clean.vcf'
+        else:
+            basename = '/home/schukina/data/common/dbSNP37.vcf'
     else:
-        basename = '/home/schukina/data/common/dbSNP38.vcf'
+        if is_clean:
+            basename = '/home/schukina/data/common/dbSNP38_clean.vcf'
+        else:
+            basename = '/home/schukina/data/common/dbSNP38.vcf'
 
     for f in input_files:
         outname = args.outdir + f.split('/')[-1]
@@ -143,7 +158,7 @@ def main():
             tmp = outname.split('.')
             suffix = args.addname + '.tsv'
             outname = '.'.join(tmp[:-1]) + suffix
-        add_info(f, basename, outname)
+        add_info(f, basename, outname, is_clean)
 
 if __name__ == "__main__":
     main()
