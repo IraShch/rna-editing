@@ -142,7 +142,7 @@ def main():
     out_dir += '/'
 
     # write logs
-    log_file = out_dir + 'log.txt'
+    log_file = out_dir + 'log_test.txt'
     with open(log_file, 'w') as out:
         out.write('Data directory: {}\n'.format(data_dir))
         out.write('Percent of data to train model: {}\n'.format(percent_train))
