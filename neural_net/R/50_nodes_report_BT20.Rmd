@@ -42,19 +42,9 @@ result_data %>%
   select(ends_with("_se")) %>%
   gather(ends_with("_se"), key = "nucleotide", value = "squared_error") %>%
   ggplot() +
-  geom_boxplot(aes(nucleotide, squared_error, colour = nucleotide)) +
+  geom_boxplot(aes(nucleotide, log(squared_error), colour = nucleotide)) +
   theme_bw() +
   labs(title = 'Squared error')
-
-result_data %>%
-  select(ends_with("_se")) %>%
-  gather(ends_with("_se"), key = "nucleotide", value = "squared_error") %>%
-  filter(squared_error < 1000) %>%
-  filter(squared_error > 0) %>%
-  ggplot() +
-  geom_boxplot(aes(nucleotide, squared_error, colour = nucleotide)) +
-  theme_bw() +
-  labs(title = 'Squared error (filetered)')
 ```
 
 ```{r, echo=TRUE}
@@ -74,7 +64,7 @@ result_data %>%
 ```{r}
 result_data %>%
   ggplot() +
-  geom_boxplot(aes(1, residual_noise)) +
+  geom_boxplot(aes(1, log(residual_noise))) +
   theme_bw() +
   labs(title = 'Residual noise (50 nodes NN)')
 summary(result_data$residual_noise)
@@ -92,13 +82,7 @@ summary(result_data$residual_noise)
 ```{r}
 result_data %>%
   ggplot() +
-  geom_boxplot(aes(1, reference_error)) +
-  theme_bw() +
-  labs(title = 'Reference position error (50 nodes NN)')
-result_data %>%
-  filter(abs(reference_error) < 100) %>%
-  ggplot() +
-  geom_boxplot(aes(1, reference_error)) +
+  geom_boxplot(aes(1, log(reference_error))) +
   theme_bw() +
   labs(title = 'Reference position error (50 nodes NN)')
 ```
