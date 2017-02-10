@@ -1,0 +1,110 @@
+---
+title: "Train-test report"
+output: html_document
+params:
+    model_name:
+        value: x
+    dir:
+        value: x
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+knitr::opts_chunk$set(warning = FALSE)
+knitr::opts_chunk$set(message = FALSE)
+```
+
+```{r}
+library(readr)
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(png)
+library(grid)
+
+if (endsWith(params$dir, "/")) {
+  dir <- params$dir
+} else {
+  dir <- paste0(params$dir, "/")
+}
+
+file_name <- paste0(dir, params$model_name, "_test_results.tsv")
+result_data <- read_tsv(file_name)
+```
+
+### Model description
+
+1 hidden layer with tanh activation function. Output activation function -- Relu. Initialization is normal for both layers.
+
+Poisson loss function, RMSprop opimizer.
+
+More info in log.txt.
+
+### Learning process
+
+```{r}
+plot_name <- paste0(dir, 'history_plots/', params$model_name, '_loss.png')
+grid.raster(readPNG(plot_name))
+grid.newpage()
+plot_name <- paste0(dir, 'history_plots/', params$model_name, '_mse.png')
+grid.raster(readPNG(plot_name))
+grid.newpage()
+plot_name <- paste0(dir, 'history_plots/', params$model_name, '_mrn.png')
+grid.raster(readPNG(plot_name))
+```
+
+### Squared errors
+
+```{r}
+result_data %>%
+  select(ends_with("_se")) %>%
+  gather(ends_with("_se"), key = "nucleotide", value = "squared_error") %>%
+  ggplot() +
+  geom_boxplot(aes(nucleotide, log(squared_error), colour = nucleotide)) +
+  theme_bw() +
+  labs(title = 'Squared error')
+```
+
+```{r, echo=TRUE}
+summary(result_data$A_se)
+summary(result_data$G_se)
+summary(result_data$C_se)
+summary(result_data$T_se)
+
+result_data %>%
+  gather(ends_with("_se"), key = "nucleotide", value = "squared_error") %>%
+  select(squared_error) %>%
+  summary()
+```
+
+### Residual noise
+
+```{r}
+result_data %>%
+  ggplot() +
+  geom_boxplot(aes(1, log(residual_noise))) +
+  theme_bw() +
+  labs(title = 'Residual noise (50 nodes NN)')
+summary(result_data$residual_noise)
+```
+
+% of positions with non-zero residual noise:
+
+```{r}
+# % of positions with non-zero residual noise
+100 * nrow(filter(result_data, residual_noise > 0)) / nrow(result_data)
+```
+
+### Reference position error
+
+```{r}
+result_data %>%
+  ggplot() +
+  geom_boxplot(aes(1, log(reference_error))) +
+  theme_bw() +
+  labs(title = 'Reference position error (50 nodes NN)')
+```
+
+```{r, echo=TRUE}
+summary(result_data$reference_error)
+```
