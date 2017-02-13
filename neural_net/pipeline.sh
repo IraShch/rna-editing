@@ -33,3 +33,5 @@ python /Users/bioinformaticshub/Documents/Ira/soft/neural_net/rna-editing/neural
 Rscript ~/Documents/Ira/soft/neural_net/rna-editing/neural_net/R/plot_density.R -s ADAR -d $out_dir
 Rscript ~/Documents/Ira/soft/neural_net/rna-editing/neural_net/R/plot_density.R -s APOBEC -d $out_dir
 Rscript ~/Documents/Ira/soft/neural_net/rna-editing/neural_net/R/plot_density.R -s SNP -d $out_dir
+python /Users/bioinformaticshub/Documents/Ira/soft/neural_net/rna-editing/neural_net/python/selected_positions_analysis.py -f ~/Documents/Ira/databases/RADAR_Human_AG_all_hg19_v2.txt -b RADAR -d $out_dir
+Rscript ~/Documents/Ira/soft/neural_net/rna-editing/neural_net/R/plot_density.R -s RADAR -d $out_dir

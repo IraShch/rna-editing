@@ -83,7 +83,6 @@ def invert(x):
 
 # defines type of mismatch (max non-reference nucleotide in the initial dataset)
 def choose_type(x):
-
     reference = x[3]
     A = x[4]
     C = x[5]
