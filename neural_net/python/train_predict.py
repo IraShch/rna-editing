@@ -44,11 +44,7 @@ def prepare_noisy_data(data_dir, data_name, coverage_threshold):
     apobec = apobec[apobec['coverage'] >= coverage_threshold]
     snp = snp[snp['coverage'] >= coverage_threshold]
 
-    adar = adar.loc[:, 'A':'T']
-    apobec = apobec.loc[:, 'A':'T']
-    snp = snp.loc[:, 'A':'T']
-
-    return np.array(adar), np.array(apobec), np.array(snp)
+    return adar, apobec, snp
 
 
 # creates model and trains it
@@ -65,9 +61,13 @@ def create_model(X_train, y_train, nodes_number, batch_size, nb_epoch, output_di
 
 # denoising predictions
 def denoise(model, X, target_name, data_name, output_dir):
-    y = model.predict(X)
+    y = model.predict(np.array(X.loc[:, 'A':'T']))
+    y = pd.DataFrame(y)
+    result_df = pd.concat([X.reset_index(drop=True), y], axis=1, ignore_index=True)
+    result_df.columns = ['seqnames', 'pos', 'strand', 'reference', 'A', 'C', 'G', 'T', 'coverage',
+                         'A_pred', 'C_pred', 'G_pred', 'T_pred']
     output_file_name = output_dir + data_name + '_' + target_name + '_denoised.tsv'
-    np.savetxt(output_file_name, y, fmt='%.3f', delimiter='\t', comments='', header='A\tC\tG\tT')
+    result_df.to_csv(output_file_name, sep='\t', index=False)
 
 
 def main():
