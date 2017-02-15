@@ -134,7 +134,7 @@ fixed_chromosome_positions <- function(bam_file, current_chromosome, bam_index, 
              ((lag(pos) == pos) & lag(is_mismatch))) %>%
     mutate(coverage = A + G + T + C) %>%
     filter(coverage > min_coverage)
-  pileup_table$is_mismatch <- NULL
+  #pileup_table$is_mismatch <- NULL
   if (nrow(pileup_table) == 0) {return(NULL)}
   print(pryr::object_size(pileup_table))
   
@@ -215,7 +215,8 @@ fixed_chromosome_positions <- function(bam_file, current_chromosome, bam_index, 
     }
   }
   pileup_table <- bind_rows(pileup_table, filter(pairs, is_mess != 2) %>% select(-is_mess)) %>% 
-    select(-is_paired) %>% 
+    filter(is_mismatch) %>%
+    select(-is_paired, -is_mismatch) %>% 
     arrange(pos)
   messy_positions <- bind_rows(messy_positions, filter(pairs, is_mess == 2) %>% select(-is_mess, -is_paired)) %>%
     arrange(pos)
