@@ -1,6 +1,8 @@
 #!/bin/bash
 
-while getopts ":i:d:o:e:" opt
+RADAR=""
+
+while getopts ":i:d:o:e:r" opt
 do
 	case "$opt" in
 		i)
@@ -11,6 +13,8 @@ do
 			result_dir="$OPTARG";;
 		e)
 			n_epoch="$OPTARG";;
+		r)
+			RADAR=true;;
 	esac
 done
 
@@ -33,5 +37,8 @@ python /Users/bioinformaticshub/Documents/Ira/soft/neural_net/rna-editing/neural
 Rscript ~/Documents/Ira/soft/neural_net/rna-editing/neural_net/R/plot_density.R -s ADAR -d $out_dir
 Rscript ~/Documents/Ira/soft/neural_net/rna-editing/neural_net/R/plot_density.R -s APOBEC -d $out_dir
 Rscript ~/Documents/Ira/soft/neural_net/rna-editing/neural_net/R/plot_density.R -s SNP -d $out_dir
-python /Users/bioinformaticshub/Documents/Ira/soft/neural_net/rna-editing/neural_net/python/selected_positions_analysis.py -f ~/Documents/Ira/databases/RADAR_Human_AG_all_hg19_v2.txt -b RADAR -d $out_dir
-Rscript ~/Documents/Ira/soft/neural_net/rna-editing/neural_net/R/plot_density.R -s RADAR -d $out_dir
+
+if [ "$RADAR" ]; then
+    python /Users/bioinformaticshub/Documents/Ira/soft/neural_net/rna-editing/neural_net/python/selected_positions_analysis.py -f ~/Documents/Ira/databases/RADAR_Human_AG_all_hg19_v2.txt -b RADAR -d $out_dir
+	Rscript ~/Documents/Ira/soft/neural_net/rna-editing/neural_net/R/plot_density.R -s RADAR -d $out_dir
+fi

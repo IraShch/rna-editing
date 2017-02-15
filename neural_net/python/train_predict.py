@@ -29,20 +29,23 @@ def prepare_training_data(data_dir, data_name):
     return X_train, y_train
 
 
+# prepares non-standard data for predictiong
+def prepare_custom_dataset(file_name, coverage_threshold):
+    dataset = pd.read_table(file_name)
+    # filter by coverage and return
+    return dataset[dataset['coverage'] >= coverage_threshold]
+
+
 # prepares data for predicting
 def prepare_noisy_data(data_dir, data_name, coverage_threshold):
     # load initial noise set
     adar_file_name = '{}{}_adar.tsv'.format(data_dir, data_name)
     apobec_file_name = '{}{}_apobec.tsv'.format(data_dir, data_name)
     snp_file_name = '{}{}_snp.tsv'.format(data_dir, data_name)
-    adar = pd.read_table(adar_file_name)
-    apobec = pd.read_table(apobec_file_name)
-    snp = pd.read_table(snp_file_name)
 
-    # filter by coverage
-    adar = adar[adar['coverage'] >= coverage_threshold]
-    apobec = apobec[apobec['coverage'] >= coverage_threshold]
-    snp = snp[snp['coverage'] >= coverage_threshold]
+    adar = prepare_custom_dataset(adar_file_name, coverage_threshold)
+    apobec = prepare_custom_dataset(apobec_file_name, coverage_threshold)
+    snp = prepare_custom_dataset(snp_file_name, coverage_threshold)
 
     return adar, apobec, snp
 
@@ -61,11 +64,12 @@ def create_model(X_train, y_train, nodes_number, batch_size, nb_epoch, output_di
 
 # denoising predictions
 def denoise(model, X, target_name, data_name, output_dir):
+    old_names = [name for name in X.columns]
     y = model.predict(np.array(X.loc[:, 'A':'T']))
     y = pd.DataFrame(y)
     result_df = pd.concat([X.reset_index(drop=True), y], axis=1, ignore_index=True)
-    result_df.columns = ['seqnames', 'pos', 'strand', 'reference', 'A', 'C', 'G', 'T', 'coverage',
-                         'A_pred', 'C_pred', 'G_pred', 'T_pred']
+    old_names.extend(['A_pred', 'C_pred', 'G_pred', 'T_pred'])
+    result_df.columns = old_names
     output_file_name = output_dir + data_name + '_' + target_name + '_denoised.tsv'
     result_df.to_csv(output_file_name, sep='\t', index=False)
 
@@ -79,6 +83,7 @@ def main():
     parser.add_argument('-b', '--batchSize', help='batch size', default=4096)
     parser.add_argument('-e', '--epochNumber', help='number of epochs', default=400)
     parser.add_argument('-c', '--coverageThreshold', help='min required coverage', default=10)
+    parser.add_argument('-f', '--customFile', help='predict on custom file only', default='')
 
     args = parser.parse_args()
 
@@ -106,13 +111,7 @@ def main():
         os.makedirs(out_dir)
     out_dir += '/'
 
-    # write logs
-    log_file = out_dir + 'log_predict.txt'
-    with open(log_file, 'w') as out:
-        out.write('Data directory: {}\n'.format(data_dir))
-        out.write('Number of nodes in hidden layer: {}\n'.format(nodes_number))
-        out.write('Number of epochs: {}\n'.format(nb_epoch))
-        out.write('Batch size: {}\n'.format(batch_size))
+    is_custom = (args.customFile != '')
 
     # fix random
     seed = 1214
@@ -123,12 +122,27 @@ def main():
     # train model
     model = create_model(X_train, y_train, nodes_number, batch_size, nb_epoch, out_dir, data_name)
 
-    # load noisy data
-    adar, apobec, snp = prepare_noisy_data(data_dir, data_name, coverage_threshold)
-    # denoise data
-    denoise(model, adar, 'ADAR', data_name, out_dir)
-    denoise(model, apobec, 'APOBEC', data_name, out_dir)
-    denoise(model, snp, 'SNP', data_name, out_dir)
+    if not is_custom:
+        # write logs
+        log_file = out_dir + 'log_predict.txt'
+        with open(log_file, 'w') as out:
+            out.write('Data directory: {}\n'.format(data_dir))
+            out.write('Number of nodes in hidden layer: {}\n'.format(nodes_number))
+            out.write('Number of epochs: {}\n'.format(nb_epoch))
+            out.write('Batch size: {}\n'.format(batch_size))
+
+        # load noisy data
+        adar, apobec, snp = prepare_noisy_data(data_dir, data_name, coverage_threshold)
+        # denoise data
+        denoise(model, adar, 'ADAR', data_name, out_dir)
+        denoise(model, apobec, 'APOBEC', data_name, out_dir)
+        denoise(model, snp, 'SNP', data_name, out_dir)
+    else:
+        dataset = prepare_custom_dataset(args.customFile, coverage_threshold)
+        target_name = args.customFile.split('/')[-1].split('.')[0]
+        denoise(model, dataset, target_name, data_name, out_dir)
+
+
 
 
 if __name__ == "__main__":

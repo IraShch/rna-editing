@@ -72,9 +72,9 @@ def apobec_fractions(path, data_name):
 
 
 # replace nucleotides with complimentary
-def invert(x):
-    strand = x[2]
-    type = x[13]
+def invert(x, type_i, strand_i):
+    strand = x[strand_i]
+    type = x[type_i]
     pairs = {'A': 'T', 'G': 'C', 'C': 'G', 'T': 'A'}
     if strand == '-':
         return pairs[type[0]] + pairs[type[1]]
@@ -82,34 +82,34 @@ def invert(x):
 
 
 # defines type of mismatch (max non-reference nucleotide in the initial dataset)
-def choose_type(x):
-    reference = x[3]
-    A = x[4]
-    C = x[5]
-    G = x[6]
-    T = x[7]
+def choose_type(x, reference_i, A_i, C_i, G_i, T_i):
+    reference = x[reference_i]
+    A = x[A_i]
+    C = x[C_i]
+    G = x[G_i]
+    T = x[T_i]
     tmp_dict = {'A': A, 'C': C, 'G': G, 'T': T}
     tmp_dict.pop(reference, None)
     second = max(tmp_dict, key=tmp_dict.get)
     return reference + second
 
 
-def old_fraction(x):
-    type = x[13]
-    A = x[4]
-    C = x[5]
-    G = x[6]
-    T = x[7]
+def old_fraction(x, type_i, A_i, C_i, G_i, T_i):
+    type = x[type_i]
+    A = x[A_i]
+    C = x[C_i]
+    G = x[G_i]
+    T = x[T_i]
     tmp_dict = {'A': A, 'C': C, 'G': G, 'T': T}
     return tmp_dict[type[1]] / float(tmp_dict[type[1]] + tmp_dict[type[0]])
 
 
-def clean_fraction(x):
-    type = x[13]
-    A = x[9]
-    C = x[10]
-    G = x[11]
-    T = x[12]
+def clean_fraction(x, type_i, Apred_i, Cpred_i, Gpred_i, Tpred_i):
+    type = x[type_i]
+    A = x[Apred_i]
+    C = x[Cpred_i]
+    G = x[Gpred_i]
+    T = x[Tpred_i]
     tmp_dict = {'A': A, 'C': C, 'G': G, 'T': T}
     coverage = float(tmp_dict[type[1]] + tmp_dict[type[0]])
     if coverage == 0:
@@ -117,7 +117,7 @@ def clean_fraction(x):
     return tmp_dict[type[1]] / coverage
 
 
-def all_type_fractions(path, data_name):
+def snp_fractions(path, data_name):
     # read in data
     file_name_results = path + data_name + '_SNP_denoised.tsv'
     data = pd.read_table(file_name_results)
@@ -146,10 +146,52 @@ def all_type_fractions(path, data_name):
                                                                                       100 * n_after / float(n_before)))
 
 
+def custom_fractions(path, tag, file_name):
+    data = pd.read_table(file_name)
+    old_names = [name for name in data.columns]
+
+    # choose type and calculate fractions
+    ref_i = data.columns.get_loc('reference')
+    strand_i = data.columns.get_loc('strand')
+    A_i = data.columns.get_loc('A')
+    C_i = data.columns.get_loc('C')
+    G_i = data.columns.get_loc('G')
+    T_i = data.columns.get_loc('T')
+    Apred_i = data.columns.get_loc('A_pred')
+    Cpred_i = data.columns.get_loc('C_pred')
+    Gpred_i = data.columns.get_loc('G_pred')
+    Tpred_i = data.columns.get_loc('T_pred')
+    data = pd.concat([data, data.apply(lambda x: choose_type(x, ref_i, A_i, C_i, G_i, T_i), axis=1)],
+                     axis=1, ignore_index=True)
+    type_i = data.shape[1] - 1
+    data = pd.concat([data, data.apply(lambda x: old_fraction(x, type_i, A_i, C_i, G_i, T_i), axis=1)],
+                     axis=1, ignore_index=True)
+    data = pd.concat([data, data.apply(lambda x: clean_fraction(x, type_i, Apred_i, Cpred_i, Gpred_i, Tpred_i), axis=1)],
+                     axis=1, ignore_index=True)
+    data = pd.concat([data, data.apply(lambda x: invert(x, type_i, strand_i), axis=1)], axis=1, ignore_index=True)
+    data = data.drop(type_i, axis=1)
+    old_names.extend(['fraction_ini', 'fraction_clean', 'type'])
+    data.columns = old_names
+
+    #  save data
+    output_file_name = path + tag + '_fractions.tsv'
+    data.to_csv(output_file_name, sep='\t', index=False)
+
+    # analysis
+    n_before = sum(data['fraction_ini'] > 0)
+    n_after = sum(data['fraction_clean'] > 0)
+    log_file_name = path + 'log_predict.txt'
+    with open(log_file_name, 'a') as out:
+        out.write('\n# {} sites\n'.format(tag))
+        out.write('Number of potential sites: {}\n'.format(n_before))
+        out.write('Number of potential sites after denoising: {} ({}% left)\n'.format(n_after,
+                                                                                      100 * n_after / float(n_before)))
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('-i', '--dataName', help='name of the dataset', required=True)
     parser.add_argument('-d', '--dataDir', help='directory for data storage', required=True)
+    parser.add_argument('-f', '--customFile', help='predict on custom file only', default='')
 
     args = parser.parse_args()
 
@@ -157,10 +199,16 @@ def main():
     if not path.endswith('/'):
         path += '/'
     tag = args.dataName
+    is_custom = (args.customFile != '')
 
-    adar_fractions(path, tag)
-    apobec_fractions(path, tag)
-    all_type_fractions(path, tag)
+
+    if not is_custom:
+        adar_fractions(path, tag)
+        apobec_fractions(path, tag)
+        snp_fractions(path, tag)
+    else:
+        tag = args.customFile.split('/')[-1].split('.')[0]
+        custom_fractions(path, tag, args.customFile)
 
 
 if __name__ == "__main__":
