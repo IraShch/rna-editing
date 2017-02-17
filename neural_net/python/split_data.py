@@ -11,6 +11,7 @@ def split_data(file_name, data_dir, coverage_thr):
 
     # load initial file: bam_reader with 3 added columns
     data = pandas.read_table(input_file_name)
+    data = data[data['coverage'] >= coverage_thr]
 
     # split data by type
     apobec = data[data['can_be_APOBEC_editing'] == True]
@@ -31,19 +32,12 @@ def split_data(file_name, data_dir, coverage_thr):
         out.write('APOBEC: {}\n'.format(apobec.shape[0]))
         out.write('SNP: {}'.format(snp.shape[0]))
 
-    apobec.loc[:, 'seqnames':'coverage'].to_csv('{}{}_apobec.tsv'.format(data_dir, data_name), sep='\t', index=False)
-    adar.loc[:, 'seqnames':'coverage'].to_csv('{}{}_adar.tsv'.format(data_dir, data_name), sep='\t', index=False)
-    snp.loc[:, 'seqnames':'coverage'].to_csv('{}{}_snp.tsv'.format(data_dir, data_name), sep='\t', index=False)
-    noise.loc[:, 'seqnames':'coverage'].to_csv('{}{}_noise.tsv'.format(data_dir, data_name), sep='\t', index=False)
+    apobec.to_csv('{}{}_apobec.tsv'.format(data_dir, data_name), sep='\t', index=False)
+    adar.to_csv('{}{}_adar.tsv'.format(data_dir, data_name), sep='\t', index=False)
+    snp.to_csv('{}{}_snp.tsv'.format(data_dir, data_name), sep='\t', index=False)
+    noise.to_csv('{}{}_noise.tsv'.format(data_dir, data_name), sep='\t', index=False)
 
-    # transform noise df into X, y
-    # load initial noise set
-    noise = noise.loc[:, 'seqnames':'coverage']
-
-    # filter by coverage
-    noise = noise[noise['coverage'] >= coverage_thr]
-
-    # create X and y
+    # create X and y for learning
     X = pandas.DataFrame(noise, columns=['A', 'C', 'G', 'T'])
     y = pandas.DataFrame(noise, columns=['A', 'C', 'G', 'T'])
     y['C'] *= (noise['reference'] == 'C')

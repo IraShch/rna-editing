@@ -1,0 +1,438 @@
+---
+title: "Bahn report (iter 1)"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+knitr::opts_chunk$set(warning = FALSE)
+knitr::opts_chunk$set(message = FALSE)
+```
+
+# ADAR
+
+```{r}
+library(readr)
+library(ggplot2)
+library(dplyr)
+
+data_dir <- "/Users/bioinformaticshub/Documents/Ira/soft/neural_net/results/Bahn/"
+
+load_data <- function(data_dir, target_name) {
+  sample_name <- "GSE28040.nsa"
+  file_name <- paste0(data_dir, sample_name, "/train_predict_50nodes_400epochs/", target_name, "_fractions.tsv")
+  data <- read_tsv(file_name)
+  data <- mutate(data, 
+                 clean_coverage = A_pred + C_pred + T_pred + G_pred,
+                 dataset = sample_name)
+  
+  all_datasets <- data
+  
+  sample_name <- "GSE28040.nsb"
+  file_name <- paste0(data_dir, sample_name, "/train_predict_50nodes_400epochs/", target_name, "_fractions.tsv")
+  data <- read_tsv(file_name)
+  data <- mutate(data, 
+                 clean_coverage = A_pred + C_pred + T_pred + G_pred,
+                 dataset = sample_name)
+  
+  all_datasets <- bind_rows(all_datasets, data)
+  
+  sample_name <- "GSE28040.sia"
+  file_name <- paste0(data_dir, sample_name, "/train_predict_50nodes_400epochs/", target_name, "_fractions.tsv")
+  data <- read_tsv(file_name)
+  data <- mutate(data, 
+                 clean_coverage = A_pred + C_pred + T_pred + G_pred,
+                 dataset = sample_name)
+  
+  all_datasets <- bind_rows(all_datasets, data)
+  
+  sample_name <- "GSE28040.sib"
+  file_name <- paste0(data_dir, sample_name, "/train_predict_50nodes_400epochs/", target_name, "_fractions.tsv")
+  data <- read_tsv(file_name)
+  data <- mutate(data, 
+                 clean_coverage = A_pred + C_pred + T_pred + G_pred,
+                 dataset = sample_name)
+  
+  all_datasets <- bind_rows(all_datasets, data)
+  rm(data)
+  return(all_datasets)
+}
+
+# ADAR
+all_datasets <- load_data(data_dir, "ADAR")
+
+# number of initial sites
+ini_n_nsa <- nrow(filter(all_datasets, dataset == "GSE28040.nsa"))
+ini_n_nsb <- nrow(filter(all_datasets, dataset == "GSE28040.nsb"))
+ini_n_sia <- nrow(filter(all_datasets, dataset == "GSE28040.sia"))
+ini_n_sib <- nrow(filter(all_datasets, dataset == "GSE28040.sib"))
+```
+
+Number of potential editing sites (initial):
+
+```{r, echo=TRUE}
+ini_n_nsa
+ini_n_nsb
+ini_n_sia
+ini_n_sib
+```
+
+NA in clean fractions: A + G == 0 after cleaning
+
+```{r, echo=TRUE}
+nrow(filter(all_datasets, is.na(fraction_clean) & dataset == "GSE28040.nsa"))
+nrow(filter(all_datasets, is.na(fraction_clean) & dataset == "GSE28040.nsb"))
+nrow(filter(all_datasets, is.na(fraction_clean) & dataset == "GSE28040.sia"))
+nrow(filter(all_datasets, is.na(fraction_clean) & dataset == "GSE28040.sib"))
+```
+
+Looks like "filter" by coverage:
+
+```{r}
+all_datasets %>%
+  filter(coverage < 750) %>%
+  ggplot() +
+  geom_density(aes(coverage, fill = is.na(fraction_clean)), alpha = 0.5) +
+  theme_bw() +
+  scale_fill_brewer(palette = "Set1") +
+  facet_wrap(~ dataset, ncol = 2, scales = "free") +
+  labs(title = 'Coverage "threshold"')
+
+ggplot(all_datasets) +
+  geom_histogram(aes(coverage), bins = 100) +
+  theme_bw() +
+  labs(title = "Coverage distribution") +
+  facet_wrap(~ dataset, ncol = 2)
+
+ggplot(filter(all_datasets, coverage < 500)) +
+  geom_histogram(aes(coverage), bins = 100) +
+  theme_bw() +
+  labs(title = "Coverage distribution") +
+  facet_wrap(~ dataset, ncol = 2)
+```
+
+Fractions change:
+
+```{r}
+all_points_with_fractions <- filter(all_datasets, !is.na(fraction_clean))
+ggplot(all_points_with_fractions) +
+  geom_point(aes(fraction_ini, fraction_clean, colour = in_dbsnp)) +
+  theme_bw() +
+  scale_colour_manual(values = c("black", "yellow")) +
+  labs(title = "ADAR fractions") +
+  facet_wrap(~ dataset, ncol = 2) 
+```
+
+Percentage of non-zero fraction sites after cleaning:
+
+```{r, echo=TRUE}
+nrow(filter(all_points_with_fractions, fraction_clean > 0 & dataset == "GSE28040.nsa")) * 100 / ini_n_nsa
+nrow(filter(all_points_with_fractions, fraction_clean > 0 & dataset == "GSE28040.nsb")) * 100 / ini_n_nsb
+nrow(filter(all_points_with_fractions, fraction_clean > 0 & dataset == "GSE28040.sia")) * 100 / ini_n_sia
+nrow(filter(all_points_with_fractions, fraction_clean > 0 & dataset == "GSE28040.sib")) * 100 / ini_n_sib
+```
+
+
+```{r}
+ggplot(all_points_with_fractions) +
+  geom_density(aes(fraction_ini, fill = (fraction_clean > 0)), alpha = 0.5) +
+  theme_bw() +
+  scale_fill_brewer(palette = "Set1") +
+  labs(title = "Initial fractions density") +
+  facet_wrap(~ dataset, ncol = 2, scales = "free")
+```
+
+# RADAR
+
+```{r, echo=TRUE}
+# RADAR
+# nsa: 1872 initially
+nrow(filter(all_points_with_fractions, fraction_clean > 0 & in_RADAR == "True" & dataset == "GSE28040.nsa"))
+nrow(filter(all_points_with_fractions, fraction_clean > 0 & in_RADAR == "True" & dataset == "GSE28040.nsa" & in_dbsnp == "True"))
+# nsb: 2323 initially
+nrow(filter(all_points_with_fractions, fraction_clean > 0 & in_RADAR == "True" & dataset == "GSE28040.nsb"))
+nrow(filter(all_points_with_fractions, fraction_clean > 0 & in_RADAR == "True" & dataset == "GSE28040.nsb" & in_dbsnp == "True"))
+# sia: 8117 initially
+nrow(filter(all_points_with_fractions, fraction_clean > 0 & in_RADAR == "True" & dataset == "GSE28040.sia"))
+nrow(filter(all_points_with_fractions, fraction_clean > 0 & in_RADAR == "True" & dataset == "GSE28040.sia" & in_dbsnp == "True"))
+# sib: 8966 initially
+nrow(filter(all_points_with_fractions, fraction_clean > 0 & in_RADAR == "True" & dataset == "GSE28040.sib"))
+nrow(filter(all_points_with_fractions, fraction_clean > 0 & in_RADAR == "True" & dataset == "GSE28040.sib" & in_dbsnp == "True"))
+```
+
+```{r}
+radar_list <- filter(all_datasets, in_RADAR == "True")
+
+ggplot(radar_list) +
+  geom_density(aes(coverage)) +
+  theme_bw() +
+  facet_wrap(~dataset, ncol = 2) +
+  labs(title = "Coverage of RADAR sites")
+
+ggplot(filter(all_points_with_fractions, in_RADAR == "True")) +
+  geom_point(aes(fraction_ini, fraction_clean, colour = in_dbsnp)) +
+  theme_bw() +
+  scale_colour_manual(values = c("black", "yellow")) +
+  labs(title = "ADAR fractions for sites from RADAR") +
+  facet_wrap(~ dataset, ncol = 2)
+
+# coverage
+coverage_plot <- ggplot(all_datasets) +
+  geom_point(aes(coverage, clean_coverage)) +
+  theme_bw() +
+  labs(title = "Coverage transformation") +
+  facet_wrap(~ dataset, ncol = 2)
+```
+
+# Bahn list 
+
+```{r}
+# Bahn
+bahn_list <- filter(all_datasets, in_Bahn == "True")
+```
+
+Number of sites initially:
+
+```{r, echo=TRUE}
+nrow(filter(bahn_list, dataset == "GSE28040.nsa"))
+nrow(filter(bahn_list, dataset == "GSE28040.nsb"))
+nrow(filter(bahn_list, dataset == "GSE28040.sia"))
+nrow(filter(bahn_list, dataset == "GSE28040.sib"))
+```
+
+
+```{r}
+ggplot(bahn_list) +
+  geom_density(aes(fraction_ini)) +
+  theme_bw() +
+  facet_wrap(~dataset, ncol = 2) +
+  labs(title = "Initial fractions of Bahn's sites")
+
+ggplot(bahn_list) +
+  geom_density(aes(coverage)) +
+  theme_bw() +
+  facet_wrap(~dataset, ncol = 2) +
+  labs(title = "Coverage of Bahn's sites")
+
+ggplot(filter(all_datasets, in_Bahn == "True")) +
+  geom_point(aes(fraction_ini, fraction_clean, colour = in_dbsnp)) +
+  theme_bw() +
+  scale_colour_manual(values = c("black", "yellow")) +
+  labs(title = "ADAR fractions of sites from Bahn list") +
+  facet_wrap(~ dataset, ncol = 2) 
+```
+
+# APOBEC
+
+```{r}
+# APOBEC
+all_datasets <- load_data(data_dir, "APOBEC")
+
+# number of initial sites
+ini_n_nsa <- nrow(filter(all_datasets, dataset == "GSE28040.nsa"))
+ini_n_nsb <- nrow(filter(all_datasets, dataset == "GSE28040.nsb"))
+ini_n_sia <- nrow(filter(all_datasets, dataset == "GSE28040.sia"))
+ini_n_sib <- nrow(filter(all_datasets, dataset == "GSE28040.sib"))
+```
+
+Number of sites initially:
+
+```{r, echo=TRUE}
+ini_n_nsa
+ini_n_nsb
+ini_n_sia
+ini_n_sib
+```
+
+NA in new fractions
+
+```{r, echo=TRUE}
+nrow(filter(all_datasets, is.na(fraction_clean) & dataset == "GSE28040.nsa"))
+nrow(filter(all_datasets, is.na(fraction_clean) & dataset == "GSE28040.nsb"))
+nrow(filter(all_datasets, is.na(fraction_clean) & dataset == "GSE28040.sia"))
+nrow(filter(all_datasets, is.na(fraction_clean) & dataset == "GSE28040.sib"))
+```
+
+
+```{r}
+all_datasets %>%
+  filter(coverage < 750) %>%
+  ggplot() +
+  geom_density(aes(coverage, fill = is.na(fraction_clean)), alpha = 0.5) +
+  theme_bw() +
+  scale_fill_brewer(palette = "Set1") +
+  facet_wrap(~ dataset, ncol = 2, scales = "free") +
+  labs(title = 'Coverage "threshold"')
+
+all_points_with_fractions <- filter(all_datasets, !is.na(fraction_clean))
+ggplot(all_points_with_fractions) +
+  geom_point(aes(fraction_ini, fraction_clean, colour = in_dbsnp)) +
+  theme_bw() +
+  scale_colour_manual(values = c("black", "yellow")) +
+  labs(title = "APOBEC fractions") +
+  facet_wrap(~ dataset, ncol = 2) 
+```
+
+% of sites remained after cleaning
+
+```{r, echo=TRUE}
+nrow(filter(all_points_with_fractions, fraction_clean > 0 & dataset == "GSE28040.nsa")) * 100 / ini_n_nsa
+nrow(filter(all_points_with_fractions, fraction_clean > 0 & dataset == "GSE28040.nsb")) * 100 / ini_n_nsb
+nrow(filter(all_points_with_fractions, fraction_clean > 0 & dataset == "GSE28040.sia")) * 100 / ini_n_sia
+nrow(filter(all_points_with_fractions, fraction_clean > 0 & dataset == "GSE28040.sib")) * 100 / ini_n_sib
+```
+
+```{r}
+ggplot(all_points_with_fractions) +
+  geom_density(aes(fraction_ini, fill = (fraction_clean > 0)), alpha = 0.5) +
+  theme_bw() +
+  scale_fill_brewer(palette = "Set1") +
+  labs(title = "Initial fractions density") +
+  facet_wrap(~ dataset, ncol = 2, scales = "free")
+```
+
+# SNP
+
+```{r}
+# SNP
+all_datasets <- load_data(data_dir, "SNP")
+
+# number of initial sites
+ini_n_nsa <- nrow(filter(all_datasets, dataset == "GSE28040.nsa"))
+ini_n_nsb <- nrow(filter(all_datasets, dataset == "GSE28040.nsb"))
+ini_n_sia <- nrow(filter(all_datasets, dataset == "GSE28040.sia"))
+ini_n_sib <- nrow(filter(all_datasets, dataset == "GSE28040.sib"))
+```
+
+Sites initially:
+
+```{r}
+ini_n_nsa
+ini_n_nsb
+ini_n_sia
+ini_n_sib
+```
+
+NA clean fractions:
+
+```{r}
+nrow(filter(all_datasets, is.na(fraction_clean) & dataset == "GSE28040.nsa"))
+nrow(filter(all_datasets, is.na(fraction_clean) & dataset == "GSE28040.nsb"))
+nrow(filter(all_datasets, is.na(fraction_clean) & dataset == "GSE28040.sia"))
+nrow(filter(all_datasets, is.na(fraction_clean) & dataset == "GSE28040.sib"))
+```
+
+```{r}
+all_datasets %>%
+  filter(coverage < 750) %>%
+  ggplot() +
+  geom_density(aes(coverage, fill = is.na(fraction_clean)), alpha = 0.5) +
+  theme_bw() +
+  scale_fill_brewer(palette = "Set1") +
+  facet_wrap(~ dataset, ncol = 2, scales = "free") +
+  labs(title = 'Coverage "threshold"')
+
+all_points_with_fractions <- filter(all_datasets, !is.na(fraction_clean))
+ggplot(all_points_with_fractions) +
+  geom_point(aes(fraction_ini, fraction_clean)) +
+  theme_bw() +
+  labs(title = "APOBEC fractions") +
+  facet_wrap(~ dataset, ncol = 2) 
+```
+
+% of remained sites:
+
+```{r}
+nrow(filter(all_points_with_fractions, fraction_clean > 0 & dataset == "GSE28040.nsa")) * 100 / ini_n_nsa
+nrow(filter(all_points_with_fractions, fraction_clean > 0 & dataset == "GSE28040.nsb")) * 100 / ini_n_nsb
+nrow(filter(all_points_with_fractions, fraction_clean > 0 & dataset == "GSE28040.sia")) * 100 / ini_n_sia
+nrow(filter(all_points_with_fractions, fraction_clean > 0 & dataset == "GSE28040.sib")) * 100 / ini_n_sib
+```
+
+```{r}
+ggplot(all_points_with_fractions) +
+  geom_density(aes(fraction_ini, fill = (fraction_clean > 0)), alpha = 0.5) +
+  theme_bw() +
+  scale_fill_brewer(palette = "Set1") +
+  labs(title = "Initial fractions density") +
+  facet_wrap(~ dataset, ncol = 2, scales = "free")
+```
+
+# Coverage vs fractions
+
+```{r}
+data_dir <- "/Users/bioinformaticshub/Documents/Ira/soft/neural_net/data/Bahn/"
+
+sample_name <- "GSE28040.nsa"
+file_name <- paste0(data_dir, sample_name, "_coverage.tsv")
+data <- read_tsv(file_name)
+data <- mutate(data, dataset = sample_name)
+all_datasets <- data
+
+sample_name <- "GSE28040.nsb"
+file_name <- paste0(data_dir, sample_name, "_coverage.tsv")
+data <- read_tsv(file_name)
+data <- mutate(data, dataset = sample_name)
+all_datasets <- bind_rows(all_datasets, data)
+
+sample_name <- "GSE28040.sia"
+file_name <- paste0(data_dir, sample_name, "_coverage.tsv")
+data <- read_tsv(file_name)
+data <- mutate(data, dataset = sample_name)
+all_datasets <- bind_rows(all_datasets, data)
+
+sample_name <- "GSE28040.sib"
+file_name <- paste0(data_dir, sample_name, "_coverage.tsv")
+data <- read_tsv(file_name)
+data <- mutate(data, dataset = sample_name)
+all_datasets <- bind_rows(all_datasets, data)
+
+rm(data)
+all_datasets <- mutate(all_datasets, noise_fraction = noise_abs / coverage)
+
+ggplot(all_datasets) +
+  geom_density(aes(noise_fraction)) +
+  theme_bw() +
+  labs(title="Noise fractions") +
+  facet_wrap(~ dataset, ncol = 2)
+
+ggplot(all_datasets) +
+  geom_point(aes(coverage, noise_fraction)) +
+  theme_bw() +
+  labs(title="All points") +
+  facet_wrap(~ dataset, ncol = 2)
+
+ggplot(filter(all_datasets, coverage < 500)) +
+  geom_point(aes(coverage, noise_fraction)) +
+  theme_bw() +
+  labs(title="Only coverage < 500") +
+  facet_wrap(~ dataset, ncol = 2)
+
+ggplot(all_datasets) + 
+  geom_point(aes(coverage, noise_abs)) +
+  theme_bw() +
+  labs(title="Absolute values") +
+  facet_wrap(~ dataset, ncol = 2)
+
+coverage_plot
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
