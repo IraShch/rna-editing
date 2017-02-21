@@ -116,9 +116,12 @@ def create_model(X_train, y_train, nodes_number, batch_size, nb_epoch, include_c
 
 
 # denoising predictions
-def denoise(model, X, target_name, data_name, output_dir):
+def denoise(model, X, target_name, data_name, output_dir, include_coverage):
     old_names = [name for name in X.columns]
-    y = model.predict(np.array(X.loc[:, 'A':'coverage']))
+    if include_coverage:
+        y = model.predict(np.array(X.loc[:, 'A':'coverage']))
+    else:
+        y = model.predict(np.array(X.loc[:, 'A':'T']))
     y = pd.DataFrame(y)
     result_df = pd.concat([X.reset_index(drop=True), y], axis=1, ignore_index=True)
     old_names.extend(['A_pred', 'C_pred', 'G_pred', 'T_pred'])
@@ -210,13 +213,13 @@ def main():
         # load noisy data
         adar, apobec, snp = prepare_noisy_data(data_dir, data_name, coverage_threshold)
         # denoise data
-        denoise(model, adar, 'ADAR', data_name, out_dir)
-        denoise(model, apobec, 'APOBEC', data_name, out_dir)
-        denoise(model, snp, 'SNP', data_name, out_dir)
+        denoise(model, adar, 'ADAR', data_name, out_dir, include_coverage)
+        denoise(model, apobec, 'APOBEC', data_name, out_dir, include_coverage)
+        denoise(model, snp, 'SNP', data_name, out_dir, include_coverage)
     else:
         dataset = prepare_custom_dataset(args.customFile, coverage_threshold)
         target_name = args.customFile.split('/')[-1].split('.')[0]
-        denoise(model, dataset, target_name, data_name, out_dir)
+        denoise(model, dataset, target_name, data_name, out_dir, include_coverage)
 
 
 
