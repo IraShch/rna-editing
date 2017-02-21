@@ -1,7 +1,7 @@
 import pandas
 import argparse
 
-def split_data(file_name, data_dir, coverage_thr):
+def split_data(file_name, data_dir, coverage_thr, include_coverage):
     file_name = file_name.split('/')[-1]
     data_name = file_name.strip('.tsv')
     if not data_dir.endswith('/'):
@@ -38,15 +38,22 @@ def split_data(file_name, data_dir, coverage_thr):
     noise.to_csv('{}{}_noise.tsv'.format(data_dir, data_name), sep='\t', index=False)
 
     # create X and y for learning
-    X = pandas.DataFrame(noise, columns=['A', 'C', 'G', 'T'])
+    if include_coverage:
+        X = pandas.DataFrame(noise, columns=['A', 'C', 'G', 'T', 'coverage'])
+    else:
+        X = pandas.DataFrame(noise, columns=['A', 'C', 'G', 'T'])
     y = pandas.DataFrame(noise, columns=['A', 'C', 'G', 'T'])
     y['C'] *= (noise['reference'] == 'C')
     y['A'] *= (noise['reference'] == 'A')
     y['T'] *= (noise['reference'] == 'T')
     y['G'] *= (noise['reference'] == 'G')
 
-    X.to_csv('{}{}_noise_X.tsv'.format(data_dir, data_name), sep='\t', index=False)
-    y.to_csv('{}{}_noise_y.tsv'.format(data_dir, data_name), sep='\t', index=False)
+    if include_coverage:
+        X.to_csv('{}{}_noise_X_cov.tsv'.format(data_dir, data_name), sep='\t', index=False)
+        y.to_csv('{}{}_noise_y_cov.tsv'.format(data_dir, data_name), sep='\t', index=False)
+    else:
+        X.to_csv('{}{}_noise_X.tsv'.format(data_dir, data_name), sep='\t', index=False)
+        y.to_csv('{}{}_noise_y.tsv'.format(data_dir, data_name), sep='\t', index=False)
 
 
 def main():
@@ -54,6 +61,7 @@ def main():
     parser.add_argument('-i', '--inputFile', help='name of input file', required=True)
     parser.add_argument('-d', '--directory', help='directory for data storage', required=True)
     parser.add_argument('-c', '--coverage', help='coverage threshold', required=False)
+    parser.add_argument('-v', '--includeCoverage', help='include coverage column into X', action='store_true')
 
     args = parser.parse_args()
 
@@ -61,8 +69,12 @@ def main():
         coverage_thr = int(args.coverage)
     else:
         coverage_thr = 10
+    if args.includeCoverage:
+        include_coverage = True
+    else:
+        include_coverage = False
 
-    split_data(args.inputFile, args.directory, coverage_thr)
+    split_data(args.inputFile, args.directory, coverage_thr, include_coverage)
 
 
 if __name__ == "__main__":
