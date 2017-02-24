@@ -3,7 +3,9 @@ import os
 import random
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
+import matplotlib
+matplotlib.use('Agg')
+import pyplot as plt
 from sklearn.model_selection import train_test_split
 from keras.models import Sequential
 from keras.layers import Dense
