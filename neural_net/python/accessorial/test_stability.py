@@ -165,9 +165,10 @@ def main():
 
     if args.identicalPositions:
         train_on_identical = True
+        percent_identical = float(args.identicalPercent)
     else:
         train_on_identical = False
-    percent_identical = float(args.identicalPercent)
+        percent_identical = 0
 
     # prepare directory for the results
     # create directory with all results for this dataset
@@ -177,7 +178,7 @@ def main():
     # create directory with train_test result
     out_dir += '/train_predict_{}nodes_{}epochs_{}coverage_{}identical'.format(nodes_number, nb_epoch,
                                                                                int(include_coverage),
-                                                                               int(train_on_identical))
+                                                                               percent_identical)
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
     out_dir += '/'

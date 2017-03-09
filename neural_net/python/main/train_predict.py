@@ -101,7 +101,7 @@ def prepare_noisy_data(data_dir, data_name, coverage_threshold):
 
 
 # creates model and trains it
-def create_model(X_train, y_train, nodes_number, batch_size, nb_epoch, include_coverage):
+def create_model(X_train, y_train, nodes_number, batch_size, nb_epoch, include_coverage, loss, opt):
     # define model structure
     model = Sequential()
     if include_coverage:
@@ -109,7 +109,7 @@ def create_model(X_train, y_train, nodes_number, batch_size, nb_epoch, include_c
     else:
         model.add(Dense(nodes_number, input_dim=4, init='normal', activation='tanh'))
     model.add(Dense(4, init='normal', activation='relu'))
-    model.compile(loss='poisson', optimizer='rmsprop', metrics=['mean_squared_error', mean_residual_noise])
+    model.compile(loss=loss, optimizer=opt, metrics=['mean_squared_error', mean_residual_noise])
     # learn
     model.fit(X_train, y_train, batch_size=batch_size, nb_epoch=nb_epoch, verbose=0)
     return model
@@ -145,6 +145,10 @@ def main():
                         action='store_true')
     parser.add_argument('-k', '--identicalPercent', help='number of identical positions added to trainig dataset: '
                                                          'k * nrow(X)', default=1)
+    parser.add_argument('-l', '--loss', help='specify loss function to use: '
+                                             'poisson (default) or mse', default='poisson')
+    parser.add_argument('t', '--optimizer', help='specify optimizer to use: '
+                                                 'rmsprop (default) or adam', default='rmsprop')
 
     args = parser.parse_args()
 
@@ -173,6 +177,14 @@ def main():
         train_on_identical = False
         percent_identical = 0
 
+    loss = args.loss
+    if loss not in ['poisson', 'mse']:
+        raise ValueError('Loss function can be only poisson or mse!')
+
+    opt = args.optimizer
+    if opt not in ['rmsprop', 'adam']:
+        raise ValueError('Optimizer can be only rmsprop or adam!')
+
 
     # prepare directory for the results
     # create directory with all results for this dataset
@@ -180,9 +192,11 @@ def main():
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
     # create directory with train_test result
-    out_dir += '/train_predict_{}nodes_{}epochs_{}coverage_{}identical'.format(nodes_number, nb_epoch,
+    out_dir += '/train_predict_{}nodes_{}epochs_{}coverage_{}identical_{}loss_{}opt'.format(nodes_number, nb_epoch,
                                                                             int(include_coverage),
-                                                                            percent_identical)
+                                                                            percent_identical,
+                                                                            loss,
+                                                                            opt)
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
     out_dir += '/'
@@ -197,7 +211,7 @@ def main():
     X_train, y_train = prepare_training_data(data_dir, data_name, include_coverage,
                                              train_on_identical, percent_identical)
     # train model
-    model = create_model(X_train, y_train, nodes_number, batch_size, nb_epoch, include_coverage)
+    model = create_model(X_train, y_train, nodes_number, batch_size, nb_epoch, include_coverage, loss, opt)
 
     if not is_custom:
         # write logs
@@ -207,6 +221,8 @@ def main():
             out.write('Number of nodes in hidden layer: {}\n'.format(nodes_number))
             out.write('Number of epochs: {}\n'.format(nb_epoch))
             out.write('Batch size: {}\n'.format(batch_size))
+            out.write('Loss function: {}\n'.format(loss))
+            out.write('Optimizer: {}\n'.format(opt))
             out.write('Input coverage: {}\n'.format(include_coverage))
             out.write('Include identical positions into training set: {}\n'.format(train_on_identical))
             if train_on_identical:

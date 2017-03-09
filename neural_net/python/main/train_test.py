@@ -132,7 +132,7 @@ def test_model(model, X, y, model_name, output_dir):
 
 # creates model, runs tests
 def train_test(X_train, X_test, y_train, y_test, nodes_number,
-               batch_size, nb_epoch, output_dir, data_name, include_coverage):
+               batch_size, nb_epoch, output_dir, data_name, include_coverage, loss, optim):
     # define model structure
     model = Sequential()
     if include_coverage:
@@ -140,7 +140,7 @@ def train_test(X_train, X_test, y_train, y_test, nodes_number,
     else:
         model.add(Dense(nodes_number, input_dim=4, init='normal', activation='tanh'))
     model.add(Dense(4, init='normal', activation='relu'))
-    model.compile(loss='poisson', optimizer='rmsprop', metrics=['mean_squared_error', mean_residual_noise])
+    model.compile(loss=loss, optimizer=optim, metrics=['mean_squared_error', mean_residual_noise])
     # learn
     history = model.fit(X_train, y_train, batch_size=batch_size, nb_epoch=nb_epoch,
                         verbose=0, validation_data=(X_test, y_test))
@@ -171,6 +171,10 @@ def main():
                         action='store_true')
     parser.add_argument('-k', '--identicalPercent', help='number of identical positions added to trainig dataset: '
                                                          'k * nrow(X_train)', default=1)
+    parser.add_argument('-l', '--loss', help='specify loss function to use: '
+                                             'poisson (default) or mse', default='poisson')
+    parser.add_argument('t', '--optimizer', help='specify optimizer to use: '
+                                                 'rmsprop (default) or adam', default='rmsprop')
 
     args = parser.parse_args()
 
@@ -194,6 +198,14 @@ def main():
         train_on_identical = False
         percent_identical = 0
 
+    loss = args.loss
+    if loss not in ['poisson', 'mse']:
+        raise ValueError('Loss function can be only poisson or mse!')
+
+    opt = args.optimizer
+    if opt not in ['rmsprop', 'adam']:
+        raise ValueError('Optimizer can be only rmsprop or adam!')
+
     percent_train = float(args.trainPercent)
     if percent_train >= 1 or percent_train <= 0:
         raise ValueError('Training data percent must be 0 < p < 1!')
@@ -207,9 +219,11 @@ def main():
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
     # create directory with train_test result
-    out_dir += '/train_test_{}nodes_{}epochs_{}coverage_{}identical'.format(nodes_number, nb_epoch,
+    out_dir += '/train_test_{}nodes_{}epochs_{}coverage_{}identical_{}loss_{}opt'.format(nodes_number, nb_epoch,
                                                                             int(include_coverage),
-                                                                            percent_identical)
+                                                                            percent_identical,
+                                                                            loss,
+                                                                            opt)
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
     out_dir += '/'
@@ -222,6 +236,8 @@ def main():
         out.write('Number of nodes in hidden layer: {}\n'.format(nodes_number))
         out.write('Number of epochs: {}\n'.format(nb_epoch))
         out.write('Batch size: {}\n'.format(batch_size))
+        out.write('Loss function: {}\n'.format(loss))
+        out.write('Optimizer: {}\n'.format(opt))
         out.write('Input coverage: {}\n'.format(include_coverage))
         out.write('Include identical positions into training set: {}\n'.format(train_on_identical))
         if train_on_identical:
@@ -236,7 +252,7 @@ def main():
                                                   seed, include_coverage, train_on_identical, percent_identical)
     # run
     train_test(X_train, X_test, y_train, y_test, nodes_number,
-               batch_size, nb_epoch, out_dir, data_name, include_coverage)
+               batch_size, nb_epoch, out_dir, data_name, include_coverage, loss, opt)
 
 
 if __name__ == "__main__":
