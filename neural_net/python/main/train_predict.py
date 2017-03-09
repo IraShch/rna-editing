@@ -147,7 +147,7 @@ def main():
                                                          'k * nrow(X)', default=1)
     parser.add_argument('-l', '--loss', help='specify loss function to use: '
                                              'poisson (default) or mse', default='poisson')
-    parser.add_argument('t', '--optimizer', help='specify optimizer to use: '
+    parser.add_argument('-t', '--optimizer', help='specify optimizer to use: '
                                                  'rmsprop (default) or adam', default='rmsprop')
 
     args = parser.parse_args()
