@@ -78,10 +78,12 @@ def split_data(data_dir, data_name, percent_train, seed, include_coverage, train
         X['G'] /= X['coverage']
         X['T'] /= X['coverage']
 
-        y['A'] = int(y['A'] > 0)
-        y['C'] = int(y['C'] > 0)
-        y['G'] = int(y['G'] > 0)
-        y['T'] = int(y['T'] > 0)
+        y['A'] = y['A'] > 0
+        y['C'] = y['C'] > 0
+        y['G'] = y['G'] > 0
+        y['T'] = y['T'] > 0
+
+        y = y.astype(int)
 
     # split into train/validate/test
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=1 - percent_train, random_state=seed)
