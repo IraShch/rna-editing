@@ -161,7 +161,7 @@ def main():
     parser.add_argument('-b', '--batchSize', help='batch size', default=4096)
     parser.add_argument('-e', '--epochNumber', help='number of epochs', default=400)
     parser.add_argument('-c', '--coverageThreshold', help='min required coverage', default=10)
-    parser.add_argument('-f', '--customFile', help='predict on custom file only', default='')
+    parser.add_argument('-a', '--customFile', help='predict on custom file only', default='')
     parser.add_argument('-v', '--includeCoverage', help='include coverage column into X', action='store_true')
     parser.add_argument('-s', '--identicalPositions', help='include identical positions into training set',
                         action='store_true')
