@@ -97,8 +97,8 @@ def split_data(data_dir, data_name, percent_train, seed, include_coverage, train
     X_test = np.array(X_test)
     y_test = np.array(y_test)
 
-    print X_train.head()
-    print y_train.head()
+    print X_train
+    print y_train
 
     return X_train, X_test, y_train, y_test
 
