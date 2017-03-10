@@ -61,7 +61,7 @@ def add_identical(X, y, k):
 
 
 # prepares data for learning
-def split_data(data_dir, data_name, percent_train, seed, include_coverage, train_on_identical, k=1):
+def split_data(data_dir, data_name, percent_train, seed, include_coverage, train_on_identical, use_fractions, k=1):
     # load initial noise set
     if include_coverage:
         noise_X_file_name = '{}{}_noise_X_cov.tsv'.format(data_dir, data_name)
@@ -71,6 +71,17 @@ def split_data(data_dir, data_name, percent_train, seed, include_coverage, train
         noise_y_file_name = '{}{}_noise_y.tsv'.format(data_dir, data_name)
     X = pd.read_table(noise_X_file_name)
     y = pd.read_table(noise_y_file_name)
+
+    if use_fractions:
+        X['A'] /= float(X['coverage'])
+        X['C'] /= float(X['coverage'])
+        X['G'] /= float(X['coverage'])
+        X['T'] /= float(X['coverage'])
+
+        y['A'] = int(y['A'] > 0)
+        y['C'] = int(y['C'] > 0)
+        y['G'] = int(y['G'] > 0)
+        y['T'] = int(y['T'] > 0)
 
     # split into train/validate/test
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=1 - percent_train, random_state=seed)
@@ -83,6 +94,10 @@ def split_data(data_dir, data_name, percent_train, seed, include_coverage, train
     y_train = np.array(y_train)
     X_test = np.array(X_test)
     y_test = np.array(y_test)
+
+    print X_train.head()
+    print y_train.head()
+
     return X_train, X_test, y_train, y_test
 
 
@@ -175,6 +190,8 @@ def main():
                                              'poisson (default) or mse', default='poisson')
     parser.add_argument('-t', '--optimizer', help='specify optimizer to use: '
                                                  'rmsprop (default) or adam', default='rmsprop')
+    parser.add_argument('-f', '--fractions', help='use fractions instead of absolute values',
+                        action='store_true')
 
     args = parser.parse_args()
 
@@ -186,21 +203,29 @@ def main():
         out_dir += '/'
     data_name = args.dataName
 
+    use_fractions = args.fractions
+
     if args.includeCoverage:
         include_coverage = True
     else:
         include_coverage = False
+        if use_fractions:
+            raise ValueError('You must include coverage while using fractions')
 
     if args.identicalPositions:
         train_on_identical = True
         percent_identical = float(args.identicalPercent)
+        if use_fractions:
+            raise ValueError('You do not need identical positions while using fractions')
     else:
         train_on_identical = False
         percent_identical = 0
 
     loss = args.loss
     if loss not in ['poisson', 'mse']:
-        raise ValueError('Loss function can be only poisson or mse!')
+        raise ValueError('Loss function can be only poisson or mse')
+    if use_fractions and loss != 'mse':
+        raise ValueError('Loss function can be only mse while using fractions')
 
     opt = args.optimizer
     if opt not in ['rmsprop', 'adam']:
@@ -219,11 +244,15 @@ def main():
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
     # create directory with train_test result
-    out_dir += '/train_test_{}nodes_{}epochs_{}coverage_{}identical_{}loss_{}opt'.format(nodes_number, nb_epoch,
+    additional_string = ''
+    if use_fractions:
+        additional_string += "_fractions"
+    out_dir += '/train_test_{}nodes_{}epochs_{}coverage_{}identical_{}loss_{}opt{}'.format(nodes_number, nb_epoch,
                                                                             int(include_coverage),
                                                                             percent_identical,
                                                                             loss,
-                                                                            opt)
+                                                                            opt,
+                                                                            additional_string)
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
     out_dir += '/'
@@ -242,14 +271,15 @@ def main():
         out.write('Include identical positions into training set: {}\n'.format(train_on_identical))
         if train_on_identical:
             out.write('Identical rows to be added: {} * nrow(X_train)\n'.format(percent_identical))
+        out.write('Use fractions: {}\n'.format(use_fractions))
 
     # fix random
     seed = 1214
     np.random.seed(seed)
 
     # split into sets
-    X_train, X_test, y_train, y_test = split_data(data_dir, data_name, percent_train,
-                                                  seed, include_coverage, train_on_identical, percent_identical)
+    X_train, X_test, y_train, y_test = split_data(data_dir, data_name, percent_train, seed, include_coverage,
+                                                  train_on_identical, use_fractions, percent_identical)
     # run
     train_test(X_train, X_test, y_train, y_test, nodes_number,
                batch_size, nb_epoch, out_dir, data_name, include_coverage, loss, opt)
