@@ -104,7 +104,6 @@ def prepare_custom_dataset(file_name, coverage_threshold, use_fractions):
         dataset['G'] /= dataset['coverage']
         dataset['T'] /= dataset['coverage']
 
-    print dataset
     return dataset
 
 

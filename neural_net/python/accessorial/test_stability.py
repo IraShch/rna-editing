@@ -58,7 +58,7 @@ def add_identical(X, y, k):
 
 
 # prepares data for learning
-def prepare_training_data(data_dir, data_name, include_coverage, train_on_identical, k=1.0):
+def prepare_training_data(data_dir, data_name, include_coverage, train_on_identical, use_fractions, k=1.0):
     # load initial noise set
     if include_coverage:
         noise_X_file_name = '{}{}_noise_X_cov.tsv'.format(data_dir, data_name)
@@ -69,6 +69,19 @@ def prepare_training_data(data_dir, data_name, include_coverage, train_on_identi
     X_train = pd.read_table(noise_X_file_name)
     y_train = pd.read_table(noise_y_file_name)
 
+    if use_fractions:
+        X_train['A'] /= X_train['coverage']
+        X_train['C'] /= X_train['coverage']
+        X_train['G'] /= X_train['coverage']
+        X_train['T'] /= X_train['coverage']
+
+        y_train['A'] = y_train['A'] > 0
+        y_train['C'] = y_train['C'] > 0
+        y_train['G'] = y_train['G'] > 0
+        y_train['T'] = y_train['T'] > 0
+
+        y_train = y_train.astype(int)
+
     if train_on_identical:
         X_train, y_train = add_identical(X_train, y_train, k)
 
@@ -77,24 +90,31 @@ def prepare_training_data(data_dir, data_name, include_coverage, train_on_identi
     y_train = np.array(y_train)
     return X_train, y_train
 
-
-# prepares non-standard data for predictiong
-def prepare_custom_dataset(file_name, coverage_threshold):
+# prepares non-standard data for predictions
+def prepare_custom_dataset(file_name, coverage_threshold, use_fractions):
     dataset = pd.read_table(file_name)
-    # filter by coverage and return
-    return dataset[dataset['coverage'] >= coverage_threshold]
+    # filter by coverage
+    dataset =  dataset[dataset['coverage'] >= coverage_threshold]
+
+    if use_fractions:
+        dataset['A'] /= dataset['coverage']
+        dataset['C'] /= dataset['coverage']
+        dataset['G'] /= dataset['coverage']
+        dataset['T'] /= dataset['coverage']
+
+    return dataset
 
 
 # prepares data for predicting
-def prepare_noisy_data(data_dir, data_name, coverage_threshold):
+def prepare_noisy_data(data_dir, data_name, coverage_threshold, use_fractions):
     # load initial noise set
     adar_file_name = '{}{}_adar.tsv'.format(data_dir, data_name)
     apobec_file_name = '{}{}_apobec.tsv'.format(data_dir, data_name)
     snp_file_name = '{}{}_snp.tsv'.format(data_dir, data_name)
 
-    adar = prepare_custom_dataset(adar_file_name, coverage_threshold)
-    apobec = prepare_custom_dataset(apobec_file_name, coverage_threshold)
-    snp = prepare_custom_dataset(snp_file_name, coverage_threshold)
+    adar = prepare_custom_dataset(adar_file_name, coverage_threshold, use_fractions)
+    apobec = prepare_custom_dataset(apobec_file_name, coverage_threshold, use_fractions)
+    snp = prepare_custom_dataset(snp_file_name, coverage_threshold, use_fractions)
 
     return adar, apobec, snp
 
@@ -115,9 +135,12 @@ def create_model(X_train, y_train, nodes_number, batch_size, nb_epoch, include_c
 
 
 # denoising predictions
-def denoise(model, X, target_name, data_name, output_dir):
+def denoise(model, X, target_name, data_name, output_dir, include_coverage):
     old_names = [name for name in X.columns]
-    y = model.predict(np.array(X.loc[:, 'A':'coverage']))
+    if include_coverage:
+        y = model.predict(np.array(X.loc[:, 'A':'coverage']))
+    else:
+        y = model.predict(np.array(X.loc[:, 'A':'T']))
     y = pd.DataFrame(y)
     result_df = pd.concat([X.reset_index(drop=True), y], axis=1, ignore_index=True)
     old_names.extend(['A_pred', 'C_pred', 'G_pred', 'T_pred'])
@@ -135,13 +158,18 @@ def main():
     parser.add_argument('-b', '--batchSize', help='batch size', default=4096)
     parser.add_argument('-e', '--epochNumber', help='number of epochs', default=400)
     parser.add_argument('-c', '--coverageThreshold', help='min required coverage', default=10)
-    parser.add_argument('-f', '--customFile', help='predict on custom file only', default='')
+    parser.add_argument('-a', '--customFile', help='predict on custom file only', default='')
     parser.add_argument('-j', '--iteration', help='number of run', required=True)
     parser.add_argument('-v', '--includeCoverage', help='include coverage column into X', action='store_true')
     parser.add_argument('-s', '--identicalPositions', help='include identical positions into training set',
                         action='store_true')
     parser.add_argument('-k', '--identicalPercent', help='number of identical positions added to trainig dataset: '
                                                          'k * nrow(X)', default=1)
+    parser.add_argument('-l', '--loss', help='specify loss function to use: '
+                                             'poisson (default) or mse', default='poisson')
+    parser.add_argument('-t', '--optimizer', help='specify optimizer to use: '
+                                                  'rmsprop (default) or adam', default='rmsprop')
+    parser.add_argument('-f', '--fractions', help='use fractions instead of absolute values', action='store_true')
 
     args = parser.parse_args()
 
@@ -153,6 +181,8 @@ def main():
         out_dir += '/'
     data_name = args.dataName
 
+    use_fractions = args.fractions
+
     nodes_number = int(args.nodesNumber)
     batch_size = int(args.batchSize)
     nb_epoch = int(args.epochNumber)
@@ -162,13 +192,27 @@ def main():
         include_coverage = True
     else:
         include_coverage = False
+        if use_fractions:
+            raise ValueError('You must include coverage while using fractions')
 
     if args.identicalPositions:
         train_on_identical = True
         percent_identical = float(args.identicalPercent)
+        if use_fractions:
+            raise ValueError('You do not need identical positions while using fractions')
     else:
         train_on_identical = False
         percent_identical = 0
+
+    loss = args.loss
+    if loss not in ['poisson', 'mse']:
+        raise ValueError('Loss function can be only poisson or mse')
+    if use_fractions and loss != 'mse':
+        raise ValueError('Loss function can be only mse while using fractions')
+
+    opt = args.optimizer
+    if opt not in ['rmsprop', 'adam']:
+        raise ValueError('Optimizer can be only rmsprop or adam!')
 
     # prepare directory for the results
     # create directory with all results for this dataset
@@ -176,21 +220,27 @@ def main():
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
     # create directory with train_test result
-    out_dir += '/train_predict_{}nodes_{}epochs_{}coverage_{}identical'.format(nodes_number, nb_epoch,
-                                                                               int(include_coverage),
-                                                                               percent_identical)
+    additional_string = ''
+    if use_fractions:
+        additional_string += "_fractions"
+    out_dir += '/train_predict_{}nodes_{}epochs_{}coverage_{}identical_{}loss_{}opt{}'.format(nodes_number, nb_epoch,
+                                                                            int(include_coverage),
+                                                                            percent_identical,
+                                                                            loss,
+                                                                            opt,
+                                                                            additional_string)
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
     out_dir += '/'
 
     is_custom = (args.customFile != '')
 
-    # split into sets
-    X_train, y_train = prepare_training_data(data_dir, data_name, include_coverage,
-                                             train_on_identical, percent_identical)
 
+    # split into sets
+    X_train, y_train = prepare_training_data(data_dir, data_name, include_coverage, train_on_identical,
+                                             use_fractions, percent_identical)
     # train model
-    model = create_model(X_train, y_train, nodes_number, batch_size, nb_epoch, include_coverage)
+    model = create_model(X_train, y_train, nodes_number, batch_size, nb_epoch, include_coverage, loss, opt)
 
     if not is_custom:
         # write logs
@@ -200,20 +250,24 @@ def main():
             out.write('Number of nodes in hidden layer: {}\n'.format(nodes_number))
             out.write('Number of epochs: {}\n'.format(nb_epoch))
             out.write('Batch size: {}\n'.format(batch_size))
+            out.write('Loss function: {}\n'.format(loss))
+            out.write('Optimizer: {}\n'.format(opt))
+            out.write('Input coverage: {}\n'.format(include_coverage))
+            out.write('Include identical positions into training set: {}\n'.format(train_on_identical))
+            if train_on_identical:
+                out.write('Identical rows to be added: {} * nrow(X_train)\n'.format(percent_identical))
+            out.write('Use fractions: {}\n'.format(use_fractions))
 
         # load noisy data
-        adar, apobec, snp = prepare_noisy_data(data_dir, data_name, coverage_threshold)
+        adar, apobec, snp = prepare_noisy_data(data_dir, data_name, coverage_threshold, use_fractions)
         # denoise data
-        denoise(model, adar, 'ADAR', data_name, out_dir)
-        denoise(model, apobec, 'APOBEC', data_name, out_dir)
-        denoise(model, snp, 'SNP', data_name, out_dir)
+        denoise(model, adar, 'ADAR', data_name, out_dir, include_coverage)
+        denoise(model, apobec, 'APOBEC', data_name, out_dir, include_coverage)
+        denoise(model, snp, 'SNP', data_name, out_dir, include_coverage)
     else:
-        dataset = prepare_custom_dataset(args.customFile, coverage_threshold)
+        dataset = prepare_custom_dataset(args.customFile, coverage_threshold, use_fractions)
         target_name = args.customFile.split('/')[-1].split('.')[0] + str(args.iteration)
-        denoise(model, dataset, target_name, data_name, out_dir)
-
-
-
+        denoise(model, dataset, target_name, data_name, out_dir, include_coverage)
 
 
 if __name__ == "__main__":
