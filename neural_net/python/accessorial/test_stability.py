@@ -120,7 +120,7 @@ def prepare_noisy_data(data_dir, data_name, coverage_threshold, use_fractions):
 
 
 # creates model and trains it
-def create_model(X_train, y_train, nodes_number, batch_size, nb_epoch, include_coverage):
+def create_model(X_train, y_train, nodes_number, batch_size, nb_epoch, include_coverage, loss, opt):
     # define model structure
     model = Sequential()
     if include_coverage:
@@ -128,7 +128,7 @@ def create_model(X_train, y_train, nodes_number, batch_size, nb_epoch, include_c
     else:
         model.add(Dense(nodes_number, input_dim=4, init='normal', activation='tanh'))
     model.add(Dense(4, init='normal', activation='relu'))
-    model.compile(loss='poisson', optimizer='rmsprop', metrics=['mean_squared_error', mean_residual_noise])
+    model.compile(loss=loss, optimizer=opt, metrics=['mean_squared_error', mean_residual_noise])
     # learn
     model.fit(X_train, y_train, batch_size=batch_size, nb_epoch=nb_epoch, verbose=0)
     return model
