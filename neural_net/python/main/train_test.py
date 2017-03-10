@@ -73,10 +73,10 @@ def split_data(data_dir, data_name, percent_train, seed, include_coverage, train
     y = pd.read_table(noise_y_file_name)
 
     if use_fractions:
-        X['A'] /= float(X['coverage'])
-        X['C'] /= float(X['coverage'])
-        X['G'] /= float(X['coverage'])
-        X['T'] /= float(X['coverage'])
+        X['A'] /= X['coverage']
+        X['C'] /= X['coverage']
+        X['G'] /= X['coverage']
+        X['T'] /= X['coverage']
 
         y['A'] = int(y['A'] > 0)
         y['C'] = int(y['C'] > 0)
