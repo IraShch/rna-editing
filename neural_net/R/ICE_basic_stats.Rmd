@@ -38,7 +38,7 @@ library(dplyr)
 library(ggplot2)
 
 path <- "~/Documents/Ira/soft/neural_net/results/ICE/non_agressive/"
-file_name <- paste0(path, params$model_name, "/", params$model_name, "/ADAR_fractions.tsv")
+file_name <- paste0(path, params$model_name, "/", params$dir, "/ADAR_fractions.tsv")
 df <- read_tsv(file_name)
 ```
 
