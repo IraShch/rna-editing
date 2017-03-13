@@ -2,6 +2,8 @@
 title: "Basic stats for ICE dataset"
 output: html_document
 params:
+    results_dir:
+        value: x
     model_name:
         value: x
     dir:
@@ -37,8 +39,7 @@ library(readr)
 library(dplyr)
 library(ggplot2)
 
-path <- "~/Documents/Ira/soft/neural_net/results/ICE/non_agressive/"
-file_name <- paste0(path, params$model_name, "/", params$dir, "/ADAR_fractions.tsv")
+file_name <- paste0(params$results_dir, "/", params$model_name, "/", params$dir, "/ADAR_fractions.tsv")
 df <- read_tsv(file_name)
 ```
 
