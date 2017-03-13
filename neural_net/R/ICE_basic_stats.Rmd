@@ -156,7 +156,7 @@ known <- nrow(predicted %>% filter(in_RADAR == "True" | in_tier_1 == "True" | in
 
 ### Per tier distributions
 
-Fractions:
+Coverage:
 
 ```{r}
 # Tiers
@@ -171,31 +171,31 @@ tier_1 %>%
   geom_density(aes(coverage, fill = predicted), alpha = 0.5) +
   theme_bw() +
   scale_fill_brewer(palette = "Set1") +
-  labs(title = "Tier 1 fraction")
+  labs(title = "Tier 1 coverage")
 tier_2 %>%
   mutate(predicted = ifelse(!is.na(fraction_clean) & fraction_clean > 0, TRUE, FALSE)) %>%
   ggplot() +
   geom_density(aes(coverage, fill = predicted), alpha = 0.5) +
   theme_bw() +
   scale_fill_brewer(palette = "Set1") +
-  labs(title = "Tier 2 fraction")
+  labs(title = "Tier 2 coverage")
 tier_3_seq %>%
   mutate(predicted = ifelse(!is.na(fraction_clean) & fraction_clean > 0, TRUE, FALSE)) %>%
   ggplot() +
   geom_density(aes(coverage, fill = predicted), alpha = 0.5) +
   theme_bw() +
   scale_fill_brewer(palette = "Set1") +
-  labs(title = "Tier 3 seq fraction")
+  labs(title = "Tier 3 seq coverage")
 tier_3_meth %>%
   mutate(predicted = ifelse(!is.na(fraction_clean) & fraction_clean > 0, TRUE, FALSE)) %>%
   ggplot() +
   geom_density(aes(coverage, fill = predicted), alpha = 0.5) +
   theme_bw() +
   scale_fill_brewer(palette = "Set1") +
-  labs(title = "Tier 3 method fraction")
+  labs(title = "Tier 3 method coverage")
 ```
 
-Coverage:
+Fraction:
 
 ```{r}
 tier_1 %>%
@@ -204,27 +204,27 @@ tier_1 %>%
   geom_density(aes(fraction_ini, fill = predicted), alpha = 0.5) +
   theme_bw() +
   scale_fill_brewer(palette = "Set1") +
-  labs(title = "Tier 1 coverage")
+  labs(title = "Tier 1 fraction")
 tier_2 %>%
   mutate(predicted = ifelse(!is.na(fraction_clean) & fraction_clean > 0, TRUE, FALSE)) %>%
   ggplot() +
   geom_density(aes(fraction_ini, fill = predicted), alpha = 0.5) +
   theme_bw() +
   scale_fill_brewer(palette = "Set1") +
-  labs(title = "Tier 2 coverage")
+  labs(title = "Tier 2 fraction")
 tier_3_seq %>%
   mutate(predicted = ifelse(!is.na(fraction_clean) & fraction_clean > 0, TRUE, FALSE)) %>%
   ggplot() +
   geom_density(aes(fraction_ini, fill = predicted), alpha = 0.5) +
   theme_bw() +
   scale_fill_brewer(palette = "Set1") +
-  labs(title = "Tier 3 seq coverage")
+  labs(title = "Tier 3 seq fraction")
 tier_3_meth %>%
   mutate(predicted = ifelse(!is.na(fraction_clean) & fraction_clean > 0, TRUE, FALSE)) %>%
   ggplot() +
   geom_density(aes(fraction_ini, fill = predicted), alpha = 0.5) +
   theme_bw() +
   scale_fill_brewer(palette = "Set1") +
-  labs(title = "Tier 3 method coverage")
+  labs(title = "Tier 3 method fraction")
 ```
 
