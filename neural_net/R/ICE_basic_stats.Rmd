@@ -43,7 +43,7 @@ file_name <- paste0(params$results_dir, "/", params$model_name, "/", params$dir,
 df <- read_tsv(file_name)
 ```
 
-Initial number of sites `r nrow(df)`:
+Initial number of sites --- `r nrow(df)`:
 
 Coverage distribution
 
@@ -100,6 +100,7 @@ na_no_r <- nrow(na_set %>% filter(in_tier_1 == "True" | in_tier_2 == "True" | in
 ```
 
 % of known sites remained (with RADAR): `r after_r * 100 / before_r`% (NA: `r na_r * 100 / before_r`%).
+
 % of known sites remained (without RADAR): `r after_no_r * 100 / before_no_r`% (NA: `r na_no_r * 100 / before_no_r`%).
 
 % of sites from known lists remained
