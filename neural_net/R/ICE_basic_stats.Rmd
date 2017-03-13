@@ -1,0 +1,224 @@
+---
+title: "Basic stats for ICE dataset"
+output: html_document
+params:
+    model_name:
+        value: x
+    dir:
+        value: x
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+knitr::opts_chunk$set(warning = FALSE)
+knitr::opts_chunk$set(message = FALSE)
+```
+
+Tier 1 (954 sites) -- sites validated by ICE-method after detection (in addition validation step).
+
+Tier 2 (1963 sites) -- all sites from intersection of ICE-method and ICE-seq (intersection of tiers 3).
+
+Tier 3 -- all sites found by ICE-method (17745 sites) or ICE-seq (14390 sites).
+
+Intersections:
+
+tier_1 n tier_2 = 59
+
+tier_1 n tier_3_method = 59
+
+tier_1 n tier_3_seq = 59 + 880 = 939 sites
+
+15 additional sites are only in tier_1.
+
+# Results
+
+```{r}
+path <- "~/Documents/Ira/soft/neural_net/results/ICE/non_agressive/"
+file_name <- paste0(path, params$model_name, "/", params$model_name, "/ADAR_fractions.tsv")
+df <- read_tsv(file_name)
+```
+
+Initial number of sites `r nrow(df)`:
+
+Coverage distribution
+
+```{r}
+df %>%
+  ggplot() +
+  geom_density(aes(coverage)) +
+  theme_bw() +
+  labs(title = 'Initial coverage distribution')
+summary(df$coverage)
+```
+
+Fraction distribution
+
+```{r}
+df %>%
+  ggplot() +
+  geom_density(aes(fraction_ini)) +
+  theme_bw() +
+  labs(title = 'Initial fraction distribution')
+summary(df$fraction_ini)
+
+predicted <- filter(df, !is.na(fraction_clean) & fraction_clean > 0)
+na_set <- filter(df, is.na(fraction_clean))
+```
+
+Number of predicted sites: `r nrow(predicted)` (`r 100 * nrow(predicted) / nrow(df)`%).
+
+NAs: `r nrow(na_set)` (`r 100 * nrow(na_set) / nrow(df)`%).
+
+NA coverage distribution:
+
+```{r}
+# NAs
+summary(na_set$coverage)
+df %>%
+  filter(coverage < 500) %>%
+  ggplot() +
+  geom_density(aes(coverage, fill = is.na(fraction_clean)), alpha = 0.5) +
+  theme_bw() +
+  scale_fill_brewer(palette = "Set1") +
+  labs(title = 'Coverage "threshold" (<500)')
+```
+
+```{r}
+before_r <- nrow(df %>% filter(in_RADAR == "True" | in_tier_1 == "True" | in_tier_2 == "True" | in_tier_3_method == "True" | in_tier_3_seq == "True"))
+before_no_r <- nrow(df %>% filter(in_tier_1 == "True" | in_tier_2 == "True" | in_tier_3_method == "True" | in_tier_3_seq == "True"))
+
+after_r <- nrow(predicted %>% filter(in_RADAR == "True" | in_tier_1 == "True" | in_tier_2 == "True" | in_tier_3_method == "True" | in_tier_3_seq == "True"))
+after_no_r <- nrow(predicted %>% filter(in_tier_1 == "True" | in_tier_2 == "True" | in_tier_3_method == "True" | in_tier_3_seq == "True"))
+
+na_r <- nrow(na_set %>% filter(in_RADAR == "True" | in_tier_1 == "True" | in_tier_2 == "True" | in_tier_3_method == "True" | in_tier_3_seq == "True"))
+na_no_r <- nrow(na_set %>% filter(in_tier_1 == "True" | in_tier_2 == "True" | in_tier_3_method == "True" | in_tier_3_seq == "True"))
+```
+
+% of known sites remained (with RADAR): `r after_r * 100 / before_r`% (NA: `r na_r * 100 / before_r`%).
+% of known sites remained (without RADAR): `r after_no_r * 100 / before_no_r`% (NA: `r na_no_r * 100 / before_no_r`%).
+
+% of sites from known lists remained
+
+```{r}
+before <- nrow(df %>% filter(in_RADAR == "True"))
+after <- nrow(predicted %>% filter(in_RADAR == "True"))
+```
+
+RADAR: `r after * 100 / before`%
+
+```{r}
+before <- nrow(df %>% filter(in_tier_1 == "True"))
+after <- nrow(predicted %>% filter(in_tier_1 == "True"))
+```
+
+Tier 1: `r after * 100 / before`%
+
+```{r}
+before <- nrow(df %>% filter(in_tier_2 == "True"))
+after <- nrow(predicted %>% filter(in_tier_2 == "True"))
+```
+
+Tier 2: `r after * 100 / before`%
+
+```{r}
+before <- nrow(df %>% filter(in_tier_3_seq == "True"))
+after <- nrow(predicted %>% filter(in_tier_3_seq == "True"))
+```
+
+Tier 3 seq: `r after * 100 / before`%
+
+```{r}
+before <- nrow(df %>% filter(in_tier_3_method == "True"))
+after <- nrow(predicted %>% filter(in_tier_3_method == "True"))
+```
+
+Tier 3 method: `r after * 100 / before`%
+
+```{r}
+ini_snp <- filter(df, in_dbsnp == "True") %>% nrow()
+pred_snp <- filter(predicted, in_dbsnp == "True") %>% nrow()
+```
+
+% of SNPs remained: `r 100 * pred_snp / ini_snp`%
+
+```{r}
+known <- nrow(predicted %>% filter(in_RADAR == "True" | in_tier_1 == "True" | in_tier_2 == "True" | in_tier_3_method == "True"
+                                   | in_tier_3_seq == "True" | in_dbsnp == "True")) 
+```
+
+`r 100 * known / nrow(predicted)`% of predicted sites are known
+
+### Per tier distributions
+
+Fractions:
+
+```{r}
+# Tiers
+tier_1 <- filter(df, in_tier_1 == "True")
+tier_2 <- filter(df, in_tier_2 == "True")
+tier_3_seq <- filter(df, in_tier_3_seq == "True")
+tier_3_meth <- filter(df, in_tier_3_method == "True")
+
+tier_1 %>%
+  mutate(predicted = ifelse(!is.na(fraction_clean) & fraction_clean > 0, TRUE, FALSE)) %>%
+  ggplot() +
+  geom_density(aes(coverage, fill = predicted), alpha = 0.5) +
+  theme_bw() +
+  scale_fill_brewer(palette = "Set1") +
+  labs(title = "Tier 1 fraction")
+tier_2 %>%
+  mutate(predicted = ifelse(!is.na(fraction_clean) & fraction_clean > 0, TRUE, FALSE)) %>%
+  ggplot() +
+  geom_density(aes(coverage, fill = predicted), alpha = 0.5) +
+  theme_bw() +
+  scale_fill_brewer(palette = "Set1") +
+  labs(title = "Tier 2 fraction")
+tier_3_seq %>%
+  mutate(predicted = ifelse(!is.na(fraction_clean) & fraction_clean > 0, TRUE, FALSE)) %>%
+  ggplot() +
+  geom_density(aes(coverage, fill = predicted), alpha = 0.5) +
+  theme_bw() +
+  scale_fill_brewer(palette = "Set1") +
+  labs(title = "Tier 3 seq fraction")
+tier_3_meth %>%
+  mutate(predicted = ifelse(!is.na(fraction_clean) & fraction_clean > 0, TRUE, FALSE)) %>%
+  ggplot() +
+  geom_density(aes(coverage, fill = predicted), alpha = 0.5) +
+  theme_bw() +
+  scale_fill_brewer(palette = "Set1") +
+  labs(title = "Tier 3 method fraction")
+```
+
+Coverage:
+
+```{r}
+tier_1 %>%
+  mutate(predicted = ifelse(!is.na(fraction_clean) & fraction_clean > 0, TRUE, FALSE)) %>%
+  ggplot() +
+  geom_density(aes(fraction_ini, fill = predicted), alpha = 0.5) +
+  theme_bw() +
+  scale_fill_brewer(palette = "Set1") +
+  labs(title = "Tier 1 coverage")
+tier_2 %>%
+  mutate(predicted = ifelse(!is.na(fraction_clean) & fraction_clean > 0, TRUE, FALSE)) %>%
+  ggplot() +
+  geom_density(aes(fraction_ini, fill = predicted), alpha = 0.5) +
+  theme_bw() +
+  scale_fill_brewer(palette = "Set1") +
+  labs(title = "Tier 2 coverage")
+tier_3_seq %>%
+  mutate(predicted = ifelse(!is.na(fraction_clean) & fraction_clean > 0, TRUE, FALSE)) %>%
+  ggplot() +
+  geom_density(aes(fraction_ini, fill = predicted), alpha = 0.5) +
+  theme_bw() +
+  scale_fill_brewer(palette = "Set1") +
+  labs(title = "Tier 3 seq coverage")
+tier_3_meth %>%
+  mutate(predicted = ifelse(!is.na(fraction_clean) & fraction_clean > 0, TRUE, FALSE)) %>%
+  ggplot() +
+  geom_density(aes(fraction_ini, fill = predicted), alpha = 0.5) +
+  theme_bw() +
+  scale_fill_brewer(palette = "Set1") +
+  labs(title = "Tier 3 method coverage")
+```
+
