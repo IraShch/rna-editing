@@ -269,7 +269,7 @@ def main():
         print "Prepare dataset for predictions"
         dataset = prepare_custom_dataset(args.customFile, coverage_threshold, use_fractions)
         target_name = args.customFile.split('/')[-1].split('.')[0] + str(args.iteration)
-        print "Deonoise"
+        print "Denoise"
         denoise(model, dataset, target_name, data_name, out_dir, include_coverage)
 
 
