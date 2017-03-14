@@ -2,12 +2,18 @@ import pandas as pd
 import argparse
 
 
-def calculate_adar_fractions(data_neg, data_pos, old_names):
-    # calculate fractions
-    old_fraction_positive = data_pos['G'] / (data_pos['G'] + data_pos['A'])
-    old_fraction_negative = data_neg['C'] / (data_neg['C'] + data_neg['T'])
-    clean_fraction_positive = data_pos['G_pred'] / (data_pos['G_pred'] + data_pos['A_pred'])
-    clean_fraction_negative = data_neg['C_pred'] / (data_neg['C_pred'] + data_neg['T_pred'])
+def calculate_adar_fractions(data_neg, data_pos, old_names, is_fractions):
+    if is_fractions:
+        old_fraction_positive = data_pos['G']
+        old_fraction_negative = data_neg['C']
+        clean_fraction_positive = data_pos['G_pred']
+        clean_fraction_negative = data_neg['C_pred']
+    else:
+        # calculate fractions
+        old_fraction_positive = data_pos['G'] / (data_pos['G'] + data_pos['A'])
+        old_fraction_negative = data_neg['C'] / (data_neg['C'] + data_neg['T'])
+        clean_fraction_positive = data_pos['G_pred'] / (data_pos['G_pred'] + data_pos['A_pred'])
+        clean_fraction_negative = data_neg['C_pred'] / (data_neg['C_pred'] + data_neg['T_pred'])
 
     # add columns, concatenate two datasets
     data_pos = pd.concat([data_pos, old_fraction_positive, clean_fraction_positive], axis=1, ignore_index=True)
@@ -19,12 +25,18 @@ def calculate_adar_fractions(data_neg, data_pos, old_names):
     return data
 
 
-def calculate_apobec_fractions(data_neg, data_pos, old_names):
-    # calculate fractions
-    old_fraction_positive = data_pos['T'] / (data_pos['T'] + data_pos['C'])
-    old_fraction_negative = data_neg['A'] / (data_neg['A'] + data_neg['G'])
-    clean_fraction_positive = data_pos['T_pred'] / (data_pos['T_pred'] + data_pos['C_pred'])
-    clean_fraction_negative = data_neg['A_pred'] / (data_neg['A_pred'] + data_neg['G_pred'])
+def calculate_apobec_fractions(data_neg, data_pos, old_names, is_fractions):
+    if is_fractions:
+        old_fraction_positive = data_pos['T']
+        old_fraction_negative = data_neg['A']
+        clean_fraction_positive = data_pos['T_pred']
+        clean_fraction_negative = data_neg['A_pred']
+    else:
+        # calculate fractions
+        old_fraction_positive = data_pos['T'] / (data_pos['T'] + data_pos['C'])
+        old_fraction_negative = data_neg['A'] / (data_neg['A'] + data_neg['G'])
+        clean_fraction_positive = data_pos['T_pred'] / (data_pos['T_pred'] + data_pos['C_pred'])
+        clean_fraction_negative = data_neg['A_pred'] / (data_neg['A_pred'] + data_neg['G_pred'])
 
     # add columns, concatenate two datasets
     data_pos = pd.concat([data_pos, old_fraction_positive, clean_fraction_positive], axis=1, ignore_index=True)
@@ -51,7 +63,7 @@ def save_and_log(data, path, set_name):
         out.write('After denoising: {} ({}% left)\n'.format(n_after, 100 * n_after / float(n_before)))
 
 
-def add_adar_fractions(path, data_name, is_strand_specific, file_name_results=None):
+def add_adar_fractions(path, data_name, is_strand_specific, is_fractions, file_name_results=None):
     # read in data
     if not file_name_results:
         file_name_results = path + data_name + '_ADAR_denoised.tsv'
@@ -65,16 +77,16 @@ def add_adar_fractions(path, data_name, is_strand_specific, file_name_results=No
     if is_strand_specific:
         data_pos = data[data['strand'] == '+'].reset_index(drop=True)
         data_neg = data[data['strand'] == '-'].reset_index(drop=True)
-        data = calculate_adar_fractions(data_neg, data_pos, old_names)
+        data = calculate_adar_fractions(data_neg, data_pos, old_names, is_fractions)
     else:
         data_pos = data[data['reference'] == 'A'].reset_index(drop=True)
         data_neg = data[data['reference'] == 'T'].reset_index(drop=True)
-        data = calculate_adar_fractions(data_neg, data_pos, old_names)
+        data = calculate_adar_fractions(data_neg, data_pos, old_names, is_fractions)
 
     save_and_log(data, path, tag)
 
 
-def add_apobec_fractions(path, data_name, is_strand_specific, file_name_results=None):
+def add_apobec_fractions(path, data_name, is_strand_specific, is_fractions, file_name_results=None):
     # read in data
     if not file_name_results:
         file_name_results = path + data_name + '_APOBEC_denoised.tsv'
@@ -88,11 +100,11 @@ def add_apobec_fractions(path, data_name, is_strand_specific, file_name_results=
     if is_strand_specific:
         data_pos = data[data['strand'] == '+'].reset_index(drop=True)
         data_neg = data[data['strand'] == '-'].reset_index(drop=True)
-        data = calculate_apobec_fractions(data_neg, data_pos, old_names)
+        data = calculate_apobec_fractions(data_neg, data_pos, old_names, is_fractions)
     else:
         data_pos = data[data['reference'] == 'C'].reset_index(drop=True)
         data_neg = data[data['reference'] == 'G'].reset_index(drop=True)
-        data = calculate_apobec_fractions(data_neg, data_pos, old_names)
+        data = calculate_apobec_fractions(data_neg, data_pos, old_names, is_fractions)
 
     save_and_log(data, path, tag)
 
@@ -110,17 +122,19 @@ def choose_type(x, reference_i, A_i, C_i, G_i, T_i):
     return reference + second
 
 
-def old_fraction(x, type_i, A_i, C_i, G_i, T_i):
+def old_fraction(x, type_i, A_i, C_i, G_i, T_i, is_fraction):
     type = x[type_i]
     A = x[A_i]
     C = x[C_i]
     G = x[G_i]
     T = x[T_i]
     tmp_dict = {'A': A, 'C': C, 'G': G, 'T': T}
+    if is_fraction:
+        return tmp_dict[type[1]]
     return tmp_dict[type[1]] / float(tmp_dict[type[1]] + tmp_dict[type[0]])
 
 
-def clean_fraction(x, type_i, Apred_i, Cpred_i, Gpred_i, Tpred_i):
+def clean_fraction(x, type_i, Apred_i, Cpred_i, Gpred_i, Tpred_i, is_fraction):
     type = x[type_i]
     A = x[Apred_i]
     C = x[Cpred_i]
@@ -130,6 +144,8 @@ def clean_fraction(x, type_i, Apred_i, Cpred_i, Gpred_i, Tpred_i):
     coverage = float(tmp_dict[type[1]] + tmp_dict[type[0]])
     if coverage == 0:
         return None
+    if is_fraction:
+        return tmp_dict[type[1]]
     return tmp_dict[type[1]] / coverage
 
 
@@ -143,7 +159,7 @@ def invert(x, type_i, strand_i):
     return type
 
 
-def add_mixed_fractions(path, tag, file_name, is_strand_specific):
+def add_mixed_fractions(path, tag, file_name, is_strand_specific, is_fractions):
     # read data
     data = pd.read_table(file_name)
     old_names = [name for name in data.columns]
@@ -164,9 +180,10 @@ def add_mixed_fractions(path, tag, file_name, is_strand_specific):
     data = pd.concat([data, data.apply(lambda x: choose_type(x, ref_i, A_i, C_i, G_i, T_i), axis=1)],
                      axis=1, ignore_index=True)
     type_i = data.shape[1] - 1
-    data = pd.concat([data, data.apply(lambda x: old_fraction(x, type_i, A_i, C_i, G_i, T_i), axis=1)],
+    data = pd.concat([data, data.apply(lambda x: old_fraction(x, type_i, A_i, C_i, G_i, T_i, is_fractions), axis=1)],
                      axis=1, ignore_index=True)
-    data = pd.concat([data, data.apply(lambda x: clean_fraction(x, type_i, Apred_i, Cpred_i, Gpred_i, Tpred_i), axis=1)],
+    data = pd.concat([data, data.apply(lambda x: clean_fraction(x, type_i, Apred_i,
+                                                                Cpred_i, Gpred_i, Tpred_i, is_fractions), axis=1)],
                      axis=1, ignore_index=True)
     if is_strand_specific:
         data = pd.concat([data, data.apply(lambda x: invert(x, type_i, strand_i), axis=1)], axis=1, ignore_index=True)
@@ -185,9 +202,11 @@ def main():
     parser.add_argument('-d', '--dataDir', help='directory with files', required=True)
     parser.add_argument('-u', '--usual', help='process standard datasets: ADAR, APOBEC, SNP', action='store_true')
     parser.add_argument('-n', '--nonStrandSpecific', help="don't use strand info", action='store_true')
-    parser.add_argument('-f', '--customFile', help='predict on custom file only', default='')
+    parser.add_argument('-a', '--customFile', help='predict on custom file only', default='')
     parser.add_argument('-t', '--type', help='specify know editing type for your custom file: ADAR or APOBEC',
                         required=False, default='')
+    parser.add_argument('-f', '--fractions', help='fractions were used instead of absolute values', required=False,
+                        action='store_true')
 
     args = parser.parse_args()
 
@@ -197,6 +216,7 @@ def main():
     tag = args.dataName
     is_standard = args.usual
     is_strand_specific = (not args.nonStrandSpecific)
+    is_fractions = args.fractions
     custom_file_name = args.customFile
     is_custom = (custom_file_name != '')
     set_type = args.type
@@ -208,19 +228,19 @@ def main():
     # TODO: parameters that can't be used together
 
     if is_standard:
-        add_adar_fractions(path, tag, is_strand_specific)
-        add_apobec_fractions(path, tag, is_strand_specific)
-        add_mixed_fractions(path, 'SNP', path + tag + '_SNP_denoised.tsv', is_strand_specific)
+        add_adar_fractions(path, tag, is_strand_specific, is_fractions)
+        add_apobec_fractions(path, tag, is_strand_specific, is_fractions)
+        add_mixed_fractions(path, 'SNP', path + tag + '_SNP_denoised.tsv', is_strand_specific, is_fractions)
 
     # TODO: test it (naming especially)
     if is_custom:
         tag = custom_file_name.split('/')[-1].split('.')[0]
         if set_type == '':
-            add_mixed_fractions(path, tag, custom_file_name, is_strand_specific)
+            add_mixed_fractions(path, tag, custom_file_name, is_strand_specific, is_fractions)
         elif set_type == 'ADAR':
-            add_adar_fractions(path, tag, is_strand_specific, custom_file_name)
+            add_adar_fractions(path, tag, is_strand_specific, is_fractions, custom_file_name)
         elif set_type == 'APOBEC':
-            add_apobec_fractions(path, tag, is_strand_specific, custom_file_name)
+            add_apobec_fractions(path, tag, is_strand_specific, is_fractions, custom_file_name)
 
 
 if __name__ == "__main__":
