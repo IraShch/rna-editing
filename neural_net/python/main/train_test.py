@@ -208,8 +208,6 @@ def main():
         include_coverage = True
     else:
         include_coverage = False
-        if use_fractions:
-            raise ValueError('You must include coverage while using fractions')
 
     if args.identicalPositions:
         train_on_identical = True
