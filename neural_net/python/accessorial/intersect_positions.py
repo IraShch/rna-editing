@@ -30,8 +30,8 @@ for j in range(1, 6):
             if chr not in all_sets[j]:
                 all_sets[j][chr] = set()
 
-            if (reference == 'A' and predicted_values['G'] > 0 and predicted_values['A'] > 0) or \
-                    (reference == 'T' and predicted_values['C'] > 0 and predicted_values['T'] > 0):
+            if (reference == 'A' and predicted_values['G'] > 0) or \
+                    (reference == 'T' and predicted_values['C'] > 0):
                 all_sets[j][chr].add(pos)
                 sizes[j] += 1
 
