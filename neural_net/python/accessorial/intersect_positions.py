@@ -9,6 +9,7 @@ sizes = {}
 
 for j in range(1, 6):
     file_name = data_dir + "ICE_new_ICE_new_adar{}_denoised.tsv".format(j)
+    print "Read file {}".format(file_name)
     all_sets[j] = {}
     sizes[j] = 0
 
@@ -34,6 +35,7 @@ for j in range(1, 6):
                 all_sets[j][chr].add(pos)
                 sizes[j] += 1
 
+print "Intersect"
 intersection = copy.deepcopy(all_sets[1])
 
 for j in range(2, 6):
