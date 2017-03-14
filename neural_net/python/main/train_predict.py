@@ -71,10 +71,11 @@ def prepare_training_data(data_dir, data_name, include_coverage, train_on_identi
     y_train = pd.read_table(noise_y_file_name)
 
     if use_fractions:
-        X_train['A'] /= X_train['coverage']
-        X_train['C'] /= X_train['coverage']
-        X_train['G'] /= X_train['coverage']
-        X_train['T'] /= X_train['coverage']
+        coverage = X_train['A'] + X_train['C'] + X_train['G'] + X_train['T']
+        X_train['A'] /= coverage
+        X_train['C'] /= coverage
+        X_train['G'] /= coverage
+        X_train['T'] /= coverage
 
         y_train['A'] = y_train['A'] > 0
         y_train['C'] = y_train['C'] > 0
