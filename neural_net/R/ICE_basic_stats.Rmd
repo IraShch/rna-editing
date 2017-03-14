@@ -8,6 +8,8 @@ params:
         value: x
     dir:
         value: x
+    stability:
+        value: x
 ---
 
 ```{r setup, include=FALSE}
@@ -39,7 +41,12 @@ library(readr)
 library(dplyr)
 library(ggplot2)
 
-file_name <- paste0(params$results_dir, "/", params$model_name, "/", params$dir, "/ADAR_fractions.tsv")
+if (params$stability == "False") {
+  file_name <- paste0(params$results_dir, "/", params$model_name, "/", params$dir, "/ADAR_fractions.tsv")
+} else {
+  file_name <- paste0(params$dir, "/", params$model_name, "_", params$model_name, "_adar", params$stability, "_denoised_ADAR_fractions.tsv")
+}
+
 df <- read_tsv(file_name)
 ```
 
