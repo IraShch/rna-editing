@@ -165,7 +165,7 @@ def test_model(model, X, y, model_name, output_dir):
 
 # creates model, runs tests
 def train_test(X_train, X_test, y_train, y_test, nodes_number, batch_size, nb_epoch, output_dir, data_name,
-               include_coverage, loss, optim, scale_in_groups):
+               include_coverage, loss, optim, scale_in_groups, activation):
     # define model structure
     model = Sequential()
     if include_coverage and scale_in_groups == 2:
@@ -174,7 +174,7 @@ def train_test(X_train, X_test, y_train, y_test, nodes_number, batch_size, nb_ep
         model.add(Dense(nodes_number, input_dim=5, init='normal', activation='tanh'))
     else:
         model.add(Dense(nodes_number, input_dim=4, init='normal', activation='tanh'))
-    model.add(Dense(4, init='normal', activation='relu'))
+    model.add(Dense(4, init='normal', activation=activation))
     model.compile(loss=loss, optimizer=optim, metrics=['mean_squared_error', mean_residual_noise])
     # learn
     history = model.fit(X_train, y_train, batch_size=batch_size, nb_epoch=nb_epoch,
@@ -210,6 +210,8 @@ def main():
                                              'poisson (default) or mse', default='poisson')
     parser.add_argument('-t', '--optimizer', help='specify optimizer to use: '
                                                  'rmsprop (default) or adam', default='rmsprop')
+    parser.add_argument('-a', '--activation', help='output layer activation function: relu (default) or softmax',
+                        default='relu')
     parser.add_argument('-f', '--fractions', help='use fractions instead of absolute values',
                         action='store_true')
     parser.add_argument('-g', '--groupsToScale', help='In how many groups split dataset while scaling coverage (0, 1, 2)',
@@ -251,6 +253,10 @@ def main():
     if opt not in ['rmsprop', 'adam']:
         raise ValueError('Optimizer can be only rmsprop or adam!')
 
+    activation = args.activation
+    if activation not in ['relu', 'softmax']:
+        raise ValueError('Activation function can be only relu or softmax!')
+
     percent_train = float(args.trainPercent)
     if percent_train > 1 or percent_train <= 0:
         raise ValueError('Training data percent must be 0 < p < 1!')
@@ -273,6 +279,8 @@ def main():
         additional_string += "_fractions"
     if scaling_groups_number > 0:
         additional_string += '_{}scaling'.format(scaling_groups_number)
+    if activation == 'softmax':
+        additional_string += '_softmax'
     out_dir += '/train_test_{}nodes_{}epochs_{}coverage_{}identical_{}loss_{}opt{}'.format(nodes_number, nb_epoch,
                                                                             int(include_coverage),
                                                                             percent_identical,
@@ -301,6 +309,7 @@ def main():
         out.write('Scale coverage: {}\n'.format(scaling_groups_number > 0))
         if scaling_groups_number > 0:
             out.write('Split into two groups by coverage: {}\n'.format(scaling_groups_number == 2))
+        out.write('Activation function: {}\n'.format(activation))
 
     # fix random
     seed = 1214
@@ -311,8 +320,8 @@ def main():
                                                   train_on_identical, use_fractions, scaling_groups_number,
                                                   percent_identical)
     # run
-    train_test(X_train, X_test, y_train, y_test, nodes_number,
-               batch_size, nb_epoch, out_dir, data_name, include_coverage, loss, opt)
+    train_test(X_train, X_test, y_train, y_test, nodes_number, batch_size, nb_epoch, out_dir, data_name,
+               include_coverage, loss, opt, scaling_groups_number, activation)
 
 
 if __name__ == "__main__":
