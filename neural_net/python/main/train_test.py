@@ -212,7 +212,7 @@ def main():
                                                  'rmsprop (default) or adam', default='rmsprop')
     parser.add_argument('-f', '--fractions', help='use fractions instead of absolute values',
                         action='store_true')
-    parser.add_argument('g', 'groupsToScale', help='In how many groups split dataset while scaling coverage (0, 1, 2)',
+    parser.add_argument('-g', '--groupsToScale', help='In how many groups split dataset while scaling coverage (0, 1, 2)',
                         default=0)
 
     args = parser.parse_args()
