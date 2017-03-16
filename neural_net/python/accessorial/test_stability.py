@@ -155,12 +155,12 @@ def create_model(X_train, y_train, nodes_number, batch_size, nb_epoch, include_c
     # define model structure
     model = Sequential()
     if include_coverage and scale_in_groups == 2:
-        model.add(Dense(nodes_number, input_dim=6, init='normal', activation='tanh'))
+        model.add(Dense(nodes_number, input_dim=6, init='random_uniform', activation='tanh'))
     elif include_coverage and scale_in_groups == 1:
-        model.add(Dense(nodes_number, input_dim=5, init='normal', activation='tanh'))
+        model.add(Dense(nodes_number, input_dim=5, init='random_uniform', activation='tanh'))
     else:
-        model.add(Dense(nodes_number, input_dim=4, init='normal', activation='tanh'))
-    model.add(Dense(4, init='normal', activation=activation))
+        model.add(Dense(nodes_number, input_dim=4, init='random_uniform', activation='tanh'))
+    model.add(Dense(4, init='random_uniform', activation=activation))
     model.compile(loss=loss, optimizer=opt, metrics=['mean_squared_error', mean_residual_noise])
     # learn
     model.fit(X_train, y_train, batch_size=batch_size, nb_epoch=nb_epoch, verbose=0)
