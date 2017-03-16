@@ -58,7 +58,8 @@ def add_identical(X, y, k):
 
 
 # prepares data for learning
-def prepare_training_data(data_dir, data_name, include_coverage, train_on_identical, use_fractions, k=1.0):
+def prepare_training_data(data_dir, data_name, include_coverage, train_on_identical, use_fractions,
+                          scaling_groups_number, k=1.0):
     # load initial noise set
     if include_coverage:
         noise_X_file_name = '{}{}_noise_X_cov.tsv'.format(data_dir, data_name)
@@ -68,6 +69,20 @@ def prepare_training_data(data_dir, data_name, include_coverage, train_on_identi
         noise_y_file_name = '{}{}_noise_y.tsv'.format(data_dir, data_name)
     X_train = pd.read_table(noise_X_file_name)
     y_train = pd.read_table(noise_y_file_name)
+
+    # scale coverage
+    if include_coverage and scaling_groups_number == 1:
+        med_coverage = X_train.median()['coverage']
+        X_train['coverage'] /= med_coverage
+    if include_coverage and scaling_groups_number == 2:
+        X_train['group'] = (X_train['coverage'] > 1000).astype(int)
+        penguins = X_train[X_train['group'] == 0].reset_index(drop=True)
+        bears = X_train[X_train['group'] == 1].reset_index(drop=True)
+        med_coverage = penguins.median()['coverage']
+        penguins['coverage'] /= med_coverage
+        med_coverage = bears.median()['coverage']
+        bears['coverage'] /= med_coverage
+        X_train = pd.concat([penguins, bears], axis=0, ignore_index=True).sample(frac=1).reset_index(drop=True)
 
     if use_fractions:
         coverage = X_train['A'] + X_train['C'] + X_train['G'] + X_train['T']
@@ -92,43 +107,60 @@ def prepare_training_data(data_dir, data_name, include_coverage, train_on_identi
     return X_train, y_train
 
 # prepares non-standard data for predictions
-def prepare_custom_dataset(file_name, coverage_threshold, use_fractions):
+def prepare_custom_dataset(file_name, coverage_threshold, use_fractions, scale_coverage):
     dataset = pd.read_table(file_name)
     # filter by coverage
     dataset =  dataset[dataset['coverage'] >= coverage_threshold]
+    dataset['ini_coverage'] = dataset['coverage']
+
+    if scale_coverage == 1:
+        med_coverage = dataset.median()['coverage']
+        dataset['coverage'] /= med_coverage
+    if scale_coverage == 2:
+        dataset['group'] = (dataset['coverage'] > 1000).astype(int)
+        penguins = dataset[dataset['group'] == 0].reset_index(drop=True)
+        bears = dataset[dataset['group'] == 1].reset_index(drop=True)
+        med_coverage = penguins.median()['coverage']
+        penguins['coverage'] /= med_coverage
+        med_coverage = bears.median()['coverage']
+        bears['coverage'] /= med_coverage
+        dataset = pd.concat([penguins, bears], axis=0, ignore_index=True).sample(frac=1).reset_index(drop=True)
 
     if use_fractions:
-        dataset['A'] /= dataset['coverage']
-        dataset['C'] /= dataset['coverage']
-        dataset['G'] /= dataset['coverage']
-        dataset['T'] /= dataset['coverage']
+        dataset['A'] /= dataset['ini_coverage']
+        dataset['C'] /= dataset['ini_coverage']
+        dataset['G'] /= dataset['ini_coverage']
+        dataset['T'] /= dataset['ini_coverage']
 
     return dataset
 
 
 # prepares data for predicting
-def prepare_noisy_data(data_dir, data_name, coverage_threshold, use_fractions):
+def prepare_noisy_data(data_dir, data_name, coverage_threshold, use_fractions, scale_coverage):
     # load initial noise set
     adar_file_name = '{}{}_adar.tsv'.format(data_dir, data_name)
     apobec_file_name = '{}{}_apobec.tsv'.format(data_dir, data_name)
     snp_file_name = '{}{}_snp.tsv'.format(data_dir, data_name)
 
-    adar = prepare_custom_dataset(adar_file_name, coverage_threshold, use_fractions)
-    apobec = prepare_custom_dataset(apobec_file_name, coverage_threshold, use_fractions)
-    snp = prepare_custom_dataset(snp_file_name, coverage_threshold, use_fractions)
+    adar = prepare_custom_dataset(adar_file_name, coverage_threshold, use_fractions, scale_coverage)
+    apobec = prepare_custom_dataset(apobec_file_name, coverage_threshold, use_fractions, scale_coverage)
+    snp = prepare_custom_dataset(snp_file_name, coverage_threshold, use_fractions, scale_coverage)
 
     return adar, apobec, snp
 
 
 # creates model and trains it
-def create_model(X_train, y_train, nodes_number, batch_size, nb_epoch, include_coverage, loss, opt):
+def create_model(X_train, y_train, nodes_number, batch_size, nb_epoch, include_coverage, loss, opt, scale_in_groups,
+                 activation):
     # define model structure
     model = Sequential()
-    if include_coverage:
+    if include_coverage and scale_in_groups == 2:
+        model.add(Dense(nodes_number, input_dim=6, init='normal', activation='tanh'))
+    elif include_coverage and scale_in_groups == 1:
         model.add(Dense(nodes_number, input_dim=5, init='normal', activation='tanh'))
     else:
         model.add(Dense(nodes_number, input_dim=4, init='normal', activation='tanh'))
-    model.add(Dense(4, init='normal', activation='relu'))
+    model.add(Dense(4, init='normal', activation=activation))
     model.compile(loss=loss, optimizer=opt, metrics=['mean_squared_error', mean_residual_noise])
     # learn
     model.fit(X_train, y_train, batch_size=batch_size, nb_epoch=nb_epoch, verbose=0)
@@ -136,10 +168,12 @@ def create_model(X_train, y_train, nodes_number, batch_size, nb_epoch, include_c
 
 
 # denoising predictions
-def denoise(model, X, target_name, data_name, output_dir, include_coverage):
+def denoise(model, X, target_name, data_name, output_dir, include_coverage, scale_groups):
     old_names = [name for name in X.columns]
-    if include_coverage:
+    if include_coverage and scale_groups != 2:
         y = model.predict(np.array(X.loc[:, 'A':'coverage']))
+    elif scale_groups == 2:
+        y = model.predict(np.array(X.loc[:, ['A', 'C', 'G', 'T', 'group', 'coverage']]))
     else:
         y = model.predict(np.array(X.loc[:, 'A':'T']))
     y = pd.DataFrame(y)
@@ -171,6 +205,11 @@ def main():
     parser.add_argument('-t', '--optimizer', help='specify optimizer to use: '
                                                   'rmsprop (default) or adam', default='rmsprop')
     parser.add_argument('-f', '--fractions', help='use fractions instead of absolute values', action='store_true')
+    parser.add_argument('-a', '--activation', help='output layer activation function: relu (default) or softmax',
+                        default='relu')
+    parser.add_argument('-g', '--groupsToScale',
+                        help='In how many groups split dataset while scaling coverage (0, 1, 2)',
+                        default=0)
 
     args = parser.parse_args()
 
@@ -213,6 +252,14 @@ def main():
     if opt not in ['rmsprop', 'adam']:
         raise ValueError('Optimizer can be only rmsprop or adam!')
 
+    activation = args.activation
+    if activation not in ['relu', 'softmax']:
+        raise ValueError('Activation function can be only relu or softmax!')
+
+    scaling_groups_number = int(args.groupsToScale)
+    if scaling_groups_number not in [0, 1, 2]:
+        raise ValueError('Number of groups may be only 0, 1 or 2!')
+
     # prepare directory for the results
     # create directory with all results for this dataset
     out_dir += data_name
@@ -222,6 +269,10 @@ def main():
     additional_string = ''
     if use_fractions:
         additional_string += "_fractions"
+    if scaling_groups_number > 0:
+        additional_string += '_{}scaling'.format(scaling_groups_number)
+    if activation == 'softmax':
+        additional_string += '_softmax'
     out_dir += '/train_predict_{}nodes_{}epochs_{}coverage_{}identical_{}loss_{}opt{}'.format(nodes_number, nb_epoch,
                                                                             int(include_coverage),
                                                                             percent_identical,
@@ -238,10 +289,10 @@ def main():
     # split into sets
     print "Prepare training set"
     X_train, y_train = prepare_training_data(data_dir, data_name, include_coverage, train_on_identical,
-                                             use_fractions, percent_identical)
+                                             use_fractions, scaling_groups_number, percent_identical)
     # train model
     print "Train model"
-    model = create_model(X_train, y_train, nodes_number, batch_size, nb_epoch, include_coverage, loss, opt)
+    model = create_model(X_train, y_train, nodes_number, batch_size, nb_epoch, include_coverage, loss, opt, activation)
 
     if not is_custom:
         # write logs
@@ -258,19 +309,24 @@ def main():
             if train_on_identical:
                 out.write('Identical rows to be added: {} * nrow(X_train)\n'.format(percent_identical))
             out.write('Use fractions: {}\n'.format(use_fractions))
+            out.write('Scale coverage: {}\n'.format(scaling_groups_number > 0))
+            if scaling_groups_number > 0:
+                out.write('Split into two groups by coverage: {}\n'.format(scaling_groups_number == 2))
+            out.write('Activation function: {}\n'.format(activation))
 
         # load noisy data
-        adar, apobec, snp = prepare_noisy_data(data_dir, data_name, coverage_threshold, use_fractions)
+        adar, apobec, snp = prepare_noisy_data(data_dir, data_name, coverage_threshold, use_fractions,
+                                               scaling_groups_number)
         # denoise data
-        denoise(model, adar, 'ADAR', data_name, out_dir, include_coverage)
-        denoise(model, apobec, 'APOBEC', data_name, out_dir, include_coverage)
-        denoise(model, snp, 'SNP', data_name, out_dir, include_coverage)
+        denoise(model, adar, 'ADAR', data_name, out_dir, include_coverage, scaling_groups_number)
+        denoise(model, apobec, 'APOBEC', data_name, out_dir, include_coverage, scaling_groups_number)
+        denoise(model, snp, 'SNP', data_name, out_dir, include_coverage, scaling_groups_number)
     else:
         print "Prepare dataset for predictions"
-        dataset = prepare_custom_dataset(args.customFile, coverage_threshold, use_fractions)
+        dataset = prepare_custom_dataset(args.customFile, coverage_threshold, use_fractions, scaling_groups_number)
         target_name = args.customFile.split('/')[-1].split('.')[0] + str(args.iteration)
         print "Denoise"
-        denoise(model, dataset, target_name, data_name, out_dir, include_coverage)
+        denoise(model, dataset, target_name, data_name, out_dir, include_coverage, scaling_groups_number)
 
 
 if __name__ == "__main__":
