@@ -61,7 +61,8 @@ def add_identical(X, y, k):
 
 
 # prepares data for learning
-def split_data(data_dir, data_name, percent_train, seed, include_coverage, train_on_identical, use_fractions, k=1):
+def split_data(data_dir, data_name, percent_train, seed, include_coverage, train_on_identical, use_fractions,
+               scaling_groups_number, k=1):
     # load initial noise set
     if include_coverage:
         noise_X_file_name = '{}{}_noise_X_cov.tsv'.format(data_dir, data_name)
@@ -73,9 +74,18 @@ def split_data(data_dir, data_name, percent_train, seed, include_coverage, train
     y = pd.read_table(noise_y_file_name)
 
     # scale coverage
-    if include_coverage:
+    if include_coverage and scaling_groups_number == 1:
         med_coverage = X.median()['coverage']
         X['coverage'] /= med_coverage
+    if include_coverage and scaling_groups_number == 2:
+        X['group'] = (X['coverage'] > 1000).astype(int)
+        penguins = X[X['group'] == 0].reset_index(drop=True)
+        bears = X[X['group'] == 1].reset_index(drop=True)
+        med_coverage = penguins.median()['coverage']
+        penguins['coverage'] /= med_coverage
+        med_coverage = bears.median()['coverage']
+        bears['coverage'] /= med_coverage
+        X = pd.concat([penguins, bears], axis=0, ignore_index=True).sample(frac=1).reset_index(drop=True)
 
     if use_fractions:
         coverage = X['A'] + X['C'] + X['G'] + X['T']
@@ -154,11 +164,13 @@ def test_model(model, X, y, model_name, output_dir):
 
 
 # creates model, runs tests
-def train_test(X_train, X_test, y_train, y_test, nodes_number,
-               batch_size, nb_epoch, output_dir, data_name, include_coverage, loss, optim):
+def train_test(X_train, X_test, y_train, y_test, nodes_number, batch_size, nb_epoch, output_dir, data_name,
+               include_coverage, loss, optim, scale_in_groups):
     # define model structure
     model = Sequential()
-    if include_coverage:
+    if include_coverage and scale_in_groups == 2:
+        model.add(Dense(nodes_number, input_dim=6, init='normal', activation='tanh'))
+    elif include_coverage and scale_in_groups == 1:
         model.add(Dense(nodes_number, input_dim=5, init='normal', activation='tanh'))
     else:
         model.add(Dense(nodes_number, input_dim=4, init='normal', activation='tanh'))
@@ -200,6 +212,8 @@ def main():
                                                  'rmsprop (default) or adam', default='rmsprop')
     parser.add_argument('-f', '--fractions', help='use fractions instead of absolute values',
                         action='store_true')
+    parser.add_argument('g', 'groupsToScale', help='In how many groups split dataset while scaling coverage (0, 1, 2)',
+                        default=0)
 
     args = parser.parse_args()
 
@@ -244,6 +258,10 @@ def main():
     batch_size = int(args.batchSize)
     nb_epoch = int(args.epochNumber)
 
+    scaling_groups_number = int(args.groupsToScale)
+    if scaling_groups_number not in [0, 1, 2]:
+        raise ValueError('Number of groups may be only 0, 1 or 2!')
+
     # prepare directory for the results
     # create directory with all results for this dataset
     out_dir += data_name
@@ -253,6 +271,8 @@ def main():
     additional_string = ''
     if use_fractions:
         additional_string += "_fractions"
+    if scaling_groups_number > 0:
+        additional_string += '_{}scaling'.format(scaling_groups_number)
     out_dir += '/train_test_{}nodes_{}epochs_{}coverage_{}identical_{}loss_{}opt{}'.format(nodes_number, nb_epoch,
                                                                             int(include_coverage),
                                                                             percent_identical,
@@ -278,6 +298,9 @@ def main():
         if train_on_identical:
             out.write('Identical rows to be added: {} * nrow(X_train)\n'.format(percent_identical))
         out.write('Use fractions: {}\n'.format(use_fractions))
+        out.write('Scale coverage: {}\n'.format(scaling_groups_number > 0))
+        if scaling_groups_number > 0:
+            out.write('Split into two groups by coverage: {}\n'.format(scaling_groups_number == 2))
 
     # fix random
     seed = 1214
@@ -285,7 +308,8 @@ def main():
 
     # split into sets
     X_train, X_test, y_train, y_test = split_data(data_dir, data_name, percent_train, seed, include_coverage,
-                                                  train_on_identical, use_fractions, percent_identical)
+                                                  train_on_identical, use_fractions, scaling_groups_number,
+                                                  percent_identical)
     # run
     train_test(X_train, X_test, y_train, y_test, nodes_number,
                batch_size, nb_epoch, out_dir, data_name, include_coverage, loss, opt)
