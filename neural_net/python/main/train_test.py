@@ -88,6 +88,9 @@ def split_data(data_dir, data_name, percent_train, seed, include_coverage, train
 
     # split into train/validate/test
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=1 - percent_train, random_state=seed)
+    if percent_train == 1:
+        X_test = X_train
+        y_test = y_train
 
     if train_on_identical:
         X_train, y_train = add_identical(X_train, y_train, k)
@@ -230,7 +233,7 @@ def main():
         raise ValueError('Optimizer can be only rmsprop or adam!')
 
     percent_train = float(args.trainPercent)
-    if percent_train >= 1 or percent_train <= 0:
+    if percent_train > 1 or percent_train <= 0:
         raise ValueError('Training data percent must be 0 < p < 1!')
     nodes_number = int(args.nodesNumber)
     batch_size = int(args.batchSize)
