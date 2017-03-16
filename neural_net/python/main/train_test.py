@@ -72,6 +72,11 @@ def split_data(data_dir, data_name, percent_train, seed, include_coverage, train
     X = pd.read_table(noise_X_file_name)
     y = pd.read_table(noise_y_file_name)
 
+    # scale coverage
+    if include_coverage:
+        med_coverage = X.median()['coverage']
+        X['coverage'] /= med_coverage
+
     if use_fractions:
         coverage = X['A'] + X['C'] + X['G'] + X['T']
         X['A'] /= coverage
@@ -180,7 +185,7 @@ def main():
     parser.add_argument('-i', '--dataName', help='name of the dataset', required=True)
     parser.add_argument('-d', '--dataDir', help='directory for data storage', required=True)
     parser.add_argument('-o', '--outputDir', help='directory to save the results in', required=True)
-    parser.add_argument('-p', '--trainPercent', help='percent of data to use for training (0 < p < 1)', default=0.85)
+    parser.add_argument('-p', '--trainPercent', help='percent of data to use for training (0 < p <= 1)', default=0.85)
     parser.add_argument('-n', '--nodesNumber', help='number of nodes in the hidden layer', default=50)
     parser.add_argument('-b', '--batchSize', help='batch size', default=4096)
     parser.add_argument('-e', '--epochNumber', help='number of epochs', default=400)
