@@ -292,7 +292,8 @@ def main():
                                              use_fractions, scaling_groups_number, percent_identical)
     # train model
     print "Train model"
-    model = create_model(X_train, y_train, nodes_number, batch_size, nb_epoch, include_coverage, loss, opt, activation)
+    model = create_model(X_train, y_train, nodes_number, batch_size, nb_epoch, include_coverage, loss, opt,
+                         scaling_groups_number, activation)
 
     if not is_custom:
         # write logs
