@@ -10,6 +10,7 @@ from sklearn.model_selection import train_test_split
 from keras.models import Sequential
 from keras.layers import Dense
 import keras.backend as K
+from keras.regularizers import l2
 
 # calculates mean noise remained on "zero" positions
 # approximation for numpy version
@@ -168,13 +169,14 @@ def train_test(X_train, X_test, y_train, y_test, nodes_number, batch_size, nb_ep
                include_coverage, loss, optim, scale_in_groups, activation):
     # define model structure
     model = Sequential()
+    reg_const = 0.001
     if include_coverage and scale_in_groups == 2:
-        model.add(Dense(nodes_number, input_dim=6, init='normal', activation='tanh'))
+        model.add(Dense(nodes_number, input_dim=6, init='normal', activation='tanh', W_regularizer=l2(reg_const)))
     elif include_coverage and scale_in_groups == 1:
-        model.add(Dense(nodes_number, input_dim=5, init='normal', activation='tanh'))
+        model.add(Dense(nodes_number, input_dim=5, init='normal', activation='tanh', W_regularizer=l2(reg_const)))
     else:
-        model.add(Dense(nodes_number, input_dim=4, init='normal', activation='tanh'))
-    model.add(Dense(4, init='normal', activation=activation))
+        model.add(Dense(nodes_number, input_dim=4, init='normal', activation='tanh', W_regularizer=l2(reg_const)))
+    model.add(Dense(4, init='normal', activation=activation, W_regularizer=l2(reg_const)))
     model.compile(loss=loss, optimizer=optim, metrics=['mean_squared_error', mean_residual_noise])
     # learn
     history = model.fit(X_train, y_train, batch_size=batch_size, nb_epoch=nb_epoch,

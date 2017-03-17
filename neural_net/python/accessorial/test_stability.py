@@ -6,7 +6,7 @@ import pandas as pd
 from keras.models import Sequential
 from keras.layers import Dense
 import keras.backend as K
-from keras.regularizers import l1l2
+from keras.regularizers import l2
 
 # calculates mean noise remained on "zero" positions
 # approximation for numpy version
@@ -155,14 +155,15 @@ def create_model(X_train, y_train, nodes_number, batch_size, nb_epoch, include_c
                  activation):
     # define model structure
     model = Sequential()
+    reg_const = 0.001
     print scale_in_groups
     if include_coverage and scale_in_groups == 2:
-        model.add(Dense(nodes_number, input_dim=6, init='uniform', activation='tanh', W_regularizer=l1l2(l1=0.01, l2=0.01)))
+        model.add(Dense(nodes_number, input_dim=6, init='uniform', activation='tanh', W_regularizer=l2(reg_const)))
     elif include_coverage and scale_in_groups != 2:
-        model.add(Dense(nodes_number, input_dim=5, init='uniform', activation='tanh', W_regularizer=l1l2(l1=0.01, l2=0.01)))
+        model.add(Dense(nodes_number, input_dim=5, init='uniform', activation='tanh', W_regularizer=l2(reg_const)))
     else:
-        model.add(Dense(nodes_number, input_dim=4, init='uniform', activation='tanh', W_regularizer=l1l2(l1=0.01, l2=0.01)))
-    model.add(Dense(4, init='uniform', activation=activation, W_regularizer=l1l2(l1=0.01, l2=0.01)))
+        model.add(Dense(nodes_number, input_dim=4, init='uniform', activation='tanh', W_regularizer=l2(reg_const)))
+    model.add(Dense(4, init='uniform', activation=activation, W_regularizer=l2(reg_const)))
     model.compile(loss=loss, optimizer=opt, metrics=['mean_squared_error', mean_residual_noise])
     # learn
     model.fit(X_train, y_train, batch_size=batch_size, nb_epoch=nb_epoch, verbose=0)
