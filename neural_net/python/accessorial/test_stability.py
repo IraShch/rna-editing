@@ -60,7 +60,7 @@ def add_identical(X, y, k):
 
 # prepares data for learning
 def prepare_training_data(data_dir, data_name, include_coverage, train_on_identical, use_fractions,
-                          scaling_groups_number, k=1.0):
+                          scaling_groups_number, add_noise, k=1.0):
     # load initial noise set
     if include_coverage:
         noise_X_file_name = '{}{}_noise_X_cov.tsv'.format(data_dir, data_name)
@@ -92,12 +92,20 @@ def prepare_training_data(data_dir, data_name, include_coverage, train_on_identi
         X_train['G'] /= coverage
         X_train['T'] /= coverage
 
-        y_train['A'] = y_train['A'] > 0
-        y_train['C'] = y_train['C'] > 0
-        y_train['G'] = y_train['G'] > 0
-        y_train['T'] = y_train['T'] > 0
+        if add_noise:
+            main_part = random.uniform(0.8, 1)
+            additional = (1 - main_part) / float(3)
+            y_train['A'] = (y_train['A'] > 0) * (main_part - additional) + additional
+            y_train['C'] = (y_train['C'] > 0) * (main_part - additional) + additional
+            y_train['G'] = (y_train['G'] > 0) * (main_part - additional) + additional
+            y_train['T'] = (y_train['T'] > 0) * (main_part - additional) + additional
+        else:
+            y_train['A'] = y_train['A'] > 0
+            y_train['C'] = y_train['C'] > 0
+            y_train['G'] = y_train['G'] > 0
+            y_train['T'] = y_train['T'] > 0
 
-        y_train = y_train.astype(int)
+            y_train = y_train.astype(int)
 
     if train_on_identical:
         X_train, y_train = add_identical(X_train, y_train, k)
@@ -155,7 +163,7 @@ def create_model(X_train, y_train, nodes_number, batch_size, nb_epoch, include_c
                  activation):
     # define model structure
     model = Sequential()
-    reg_const = 0.001
+    reg_const = 0
     print scale_in_groups
     if include_coverage and scale_in_groups == 2:
         model.add(Dense(nodes_number, input_dim=6, init='uniform', activation='tanh', W_regularizer=l2(reg_const)))
@@ -213,6 +221,7 @@ def main():
     parser.add_argument('-g', '--groupsToScale',
                         help='In how many groups split dataset while scaling coverage (0, 1, 2)',
                         default=0)
+    parser.add_argument('-z', '--addNoise', help='add some noise into Y training', action='store_true')
 
     args = parser.parse_args()
 
@@ -263,6 +272,8 @@ def main():
     if scaling_groups_number not in [0, 1, 2]:
         raise ValueError('Number of groups may be only 0, 1 or 2!')
 
+    add_noise = args.addNoise
+
     # prepare directory for the results
     # create directory with all results for this dataset
     out_dir += data_name
@@ -276,6 +287,8 @@ def main():
         additional_string += '_{}scaling'.format(scaling_groups_number)
     if activation == 'softmax':
         additional_string += '_softmax'
+    if add_noise:
+        additional_string += '_noisyY'
     out_dir += '/train_predict_{}nodes_{}epochs_{}coverage_{}identical_{}loss_{}opt{}'.format(nodes_number, nb_epoch,
                                                                             int(include_coverage),
                                                                             percent_identical,
@@ -292,7 +305,7 @@ def main():
     # split into sets
     print "Prepare training set"
     X_train, y_train = prepare_training_data(data_dir, data_name, include_coverage, train_on_identical,
-                                             use_fractions, scaling_groups_number, percent_identical)
+                                             use_fractions, scaling_groups_number, add_noise, percent_identical)
     # train model
     print "Train model"
     model = create_model(X_train, y_train, nodes_number, batch_size, nb_epoch, include_coverage, loss, opt,
