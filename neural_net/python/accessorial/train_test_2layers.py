@@ -169,7 +169,7 @@ def train_test(X_train, X_test, y_train, y_test, nodes_number, batch_size, nb_ep
                include_coverage, loss, optim, scale_in_groups, activation):
     # define model structure
     model = Sequential()
-    reg_const = 0.001
+    reg_const = 0
     nodes_number = 40
     if include_coverage and scale_in_groups == 2:
         model.add(Dense(nodes_number, input_dim=6, init='uniform', activation='tanh', W_regularizer=l2(reg_const)))
