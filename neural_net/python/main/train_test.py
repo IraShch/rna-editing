@@ -191,7 +191,7 @@ def main():
     if scaling_groups_number not in [0, 1, 2]:
         raise ValueError('Number of groups may be only 0, 1 or 2!')
 
-    l2_reg_const = float(argparse.lTwoConstant)
+    l2_reg_const = float(args.lTwoConstant)
     add_noise = float(args.addNoise)
 
     # prepare directory for the results
