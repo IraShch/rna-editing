@@ -160,7 +160,7 @@ def main():
     parser.add_argument('-g', '--groupsToScale', help='In how many groups split dataset while scaling coverage (0, 1, 2)',
                         default=0)
     parser.add_argument('-s', '--addNoise', help='How much noise should be added to the y in training set', default=0)
-    parser.add_argument('l', '--lTwoConstant', help='l2 regularisation constant', default=0)
+    parser.add_argument('-l', '--lTwoConstant', help='l2 regularisation constant', default=0)
 
     args = parser.parse_args()
 
