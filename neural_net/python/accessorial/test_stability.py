@@ -163,7 +163,7 @@ def create_model(X_train, y_train, nodes_number, batch_size, nb_epoch, include_c
                  activation):
     # define model structure
     model = Sequential()
-    reg_const = 0
+    reg_const = 0.0001
     print scale_in_groups
     if include_coverage and scale_in_groups == 2:
         model.add(Dense(nodes_number, input_dim=6, init='uniform', activation='tanh', W_regularizer=l2(reg_const)))
