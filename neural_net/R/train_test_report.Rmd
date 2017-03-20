@@ -46,9 +46,6 @@ More info in log.txt.
 plot_name <- paste0(dir, 'history_plots/', params$model_name, '_loss.png')
 grid.raster(readPNG(plot_name))
 grid.newpage()
-plot_name <- paste0(dir, 'history_plots/', params$model_name, '_mse.png')
-grid.raster(readPNG(plot_name))
-grid.newpage()
 plot_name <- paste0(dir, 'history_plots/', params$model_name, '_mrn.png')
 grid.raster(readPNG(plot_name))
 ```
