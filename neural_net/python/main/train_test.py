@@ -21,64 +21,19 @@ def mean_residual_noise(y_true, y_pred):
     return K.mean(K.sum((a / (k * K.pow(y_true, 2) + 1)) * y_pred, axis=1))
 
 
-def fill_identical_column_randomly(x, A_i, C_i, G_i, T_i, coverage_i, nucleotide):
-    if nucleotide == 'A':
-        return x[coverage_i] * (random.random() < 0.25)
-    if nucleotide == 'C':
-        return x[coverage_i] * (x[A_i] == 0) * (random.random() < 1 / float(3))
-    if nucleotide == 'G':
-        return x[coverage_i] * (x[A_i] + x[C_i] == 0) * (random.random() < 0.5)
-    if nucleotide == 'T':
-        return x[coverage_i] * (x[A_i] + x[C_i] + x[G_i] == 0)
-
-def add_identical(X, y, k):
-    print "Identical positions generation"
-    n_additional = int(X.shape[0] * k)
-    X_add = X.sample(n=n_additional, replace=True)
-
-    A_i = X_add.columns.get_loc('A')
-    C_i = X_add.columns.get_loc('C')
-    G_i = X_add.columns.get_loc('G')
-    T_i = X_add.columns.get_loc('T')
-    coverage_i = X_add.columns.get_loc('coverage')
-
-    # order of nucleotides is very important here!! Do not change rows order!
-    print 'A'
-    X_add['A'] = X_add.apply(lambda x: fill_identical_column_randomly(x, A_i, C_i, G_i, T_i, coverage_i, 'A'), axis=1)
-    print 'C'
-    X_add['C'] = X_add.apply(lambda x: fill_identical_column_randomly(x, A_i, C_i, G_i, T_i, coverage_i, 'C'), axis=1)
-    print 'G'
-    X_add['G'] = X_add.apply(lambda x: fill_identical_column_randomly(x, A_i, C_i, G_i, T_i, coverage_i, 'G'), axis=1)
-    print 'T'
-    X_add['T'] = X_add.apply(lambda x: fill_identical_column_randomly(x, A_i, C_i, G_i, T_i, coverage_i, 'T'), axis=1)
-
-    X = pd.concat([X, X_add], axis=0)
-
-    # create y
-    y_add = pd.DataFrame(X_add, columns=['A', 'C', 'G', 'T'])
-    y = pd.concat([y, y_add], axis=0)
-
-    return X, y
-
-
 # prepares data for learning
-def split_data(data_dir, data_name, percent_train, seed, include_coverage, train_on_identical, use_fractions,
-               scaling_groups_number, k=1):
+def split_data(data_dir, data_name, percent_train, seed, scaling_groups_number, add_noise):
     # load initial noise set
-    if include_coverage:
-        noise_X_file_name = '{}{}_noise_X_cov.tsv'.format(data_dir, data_name)
-        noise_y_file_name = '{}{}_noise_y_cov.tsv'.format(data_dir, data_name)
-    else:
-        noise_X_file_name = '{}{}_noise_X.tsv'.format(data_dir, data_name)
-        noise_y_file_name = '{}{}_noise_y.tsv'.format(data_dir, data_name)
+    noise_X_file_name = '{}{}_noise_X_cov.tsv'.format(data_dir, data_name)
+    noise_y_file_name = '{}{}_noise_y_cov.tsv'.format(data_dir, data_name)
     X = pd.read_table(noise_X_file_name)
     y = pd.read_table(noise_y_file_name)
 
     # scale coverage
-    if include_coverage and scaling_groups_number == 1:
+    if scaling_groups_number == 1:
         med_coverage = X.median()['coverage']
         X['coverage'] /= med_coverage
-    if include_coverage and scaling_groups_number == 2:
+    if scaling_groups_number == 2:
         X['group'] = (X['coverage'] > 1000).astype(int)
         penguins = X[X['group'] == 0].reset_index(drop=True)
         bears = X[X['group'] == 1].reset_index(drop=True)
@@ -88,28 +43,35 @@ def split_data(data_dir, data_name, percent_train, seed, include_coverage, train
         bears['coverage'] /= med_coverage
         X = pd.concat([penguins, bears], axis=0, ignore_index=True).sample(frac=1).reset_index(drop=True)
 
-    if use_fractions:
-        coverage = X['A'] + X['C'] + X['G'] + X['T']
-        X['A'] /= coverage
-        X['C'] /= coverage
-        X['G'] /= coverage
-        X['T'] /= coverage
+    # create fractions
+    coverage = X['A'] + X['C'] + X['G'] + X['T']
+    X['A'] /= coverage
+    X['C'] /= coverage
+    X['G'] /= coverage
+    X['T'] /= coverage
 
+    if add_noise > 0:
+        main_part = random.uniform(add_noise, 1)
+        additional = (1 - main_part) / float(3)
+        y['A'] = (y['A'] > 0) * (main_part - additional) + additional
+        y['C'] = (y['C'] > 0) * (main_part - additional) + additional
+        y['G'] = (y['G'] > 0) * (main_part - additional) + additional
+        y['T'] = (y['T'] > 0) * (main_part - additional) + additional
+    else:
         y['A'] = y['A'] > 0
         y['C'] = y['C'] > 0
         y['G'] = y['G'] > 0
         y['T'] = y['T'] > 0
-
         y = y.astype(int)
 
     # split into train/validate/test
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=1 - percent_train, random_state=seed)
     if percent_train == 1:
-        X_test = X_train
-        y_test = y_train
-
-    if train_on_identical:
-        X_train, y_train = add_identical(X_train, y_train, k)
+        X_train = X
+        y_train = y
+        X_test = X
+        y_test = y
+    else:
+        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=1 - percent_train, random_state=seed)
 
     # all data must be np.array
     X_train = np.array(X_train)
@@ -131,15 +93,6 @@ def show_learning_history(history, data_name, output_dir):
     plt.xlabel('epoch')
     plt.legend(['train', 'test'], loc='upper left')
     plt.savefig(fname + '_loss.png')
-    plt.clf()
-    # MSE
-    plt.plot(history.history['mean_squared_error'])
-    plt.plot(history.history['val_mean_squared_error'])
-    plt.title('MSE ({})'.format(data_name))
-    plt.ylabel('MSE')
-    plt.xlabel('epoch')
-    plt.legend(['train', 'test'], loc='upper left')
-    plt.savefig(fname + '_mse.png')
     plt.clf()
     # residual noise for zero positions
     plt.plot(history.history['mean_residual_noise'])
@@ -165,19 +118,16 @@ def test_model(model, X, y, model_name, output_dir):
 
 
 # creates model, runs tests
-def train_test(X_train, X_test, y_train, y_test, nodes_number, batch_size, nb_epoch, output_dir, data_name,
-               include_coverage, loss, optim, scale_in_groups, activation):
+def train_test(X_train, X_test, y_train, y_test, nodes_number, batch_size, nb_epoch, output_dir, data_name, optim,
+               scale_in_groups, activation, reg_const):
     # define model structure
     model = Sequential()
-    reg_const = 0.001
-    if include_coverage and scale_in_groups == 2:
+    if scale_in_groups == 2:
         model.add(Dense(nodes_number, input_dim=6, init='normal', activation='tanh', W_regularizer=l2(reg_const)))
-    elif include_coverage and scale_in_groups != 1:
-        model.add(Dense(nodes_number, input_dim=5, init='normal', activation='tanh', W_regularizer=l2(reg_const)))
     else:
-        model.add(Dense(nodes_number, input_dim=4, init='normal', activation='tanh', W_regularizer=l2(reg_const)))
+        model.add(Dense(nodes_number, input_dim=5, init='normal', activation='tanh', W_regularizer=l2(reg_const)))
     model.add(Dense(4, init='normal', activation=activation, W_regularizer=l2(reg_const)))
-    model.compile(loss=loss, optimizer=optim, metrics=['mean_squared_error', mean_residual_noise])
+    model.compile(loss='mse', optimizer=optim, metrics=[mean_residual_noise])
     # learn
     history = model.fit(X_train, y_train, batch_size=batch_size, nb_epoch=nb_epoch,
                         verbose=0, validation_data=(X_test, y_test))
@@ -203,21 +153,14 @@ def main():
     parser.add_argument('-n', '--nodesNumber', help='number of nodes in the hidden layer', default=50)
     parser.add_argument('-b', '--batchSize', help='batch size', default=4096)
     parser.add_argument('-e', '--epochNumber', help='number of epochs', default=400)
-    parser.add_argument('-v', '--includeCoverage', help='include coverage column into X', action='store_true')
-    parser.add_argument('-s', '--identicalPositions', help='include identical positions into training set',
-                        action='store_true')
-    parser.add_argument('-k', '--identicalPercent', help='number of identical positions added to trainig dataset: '
-                                                         'k * nrow(X_train)', default=1)
-    parser.add_argument('-l', '--loss', help='specify loss function to use: '
-                                             'poisson (default) or mse', default='poisson')
     parser.add_argument('-t', '--optimizer', help='specify optimizer to use: '
                                                  'rmsprop (default) or adam', default='rmsprop')
     parser.add_argument('-a', '--activation', help='output layer activation function: relu (default) or softmax',
                         default='relu')
-    parser.add_argument('-f', '--fractions', help='use fractions instead of absolute values',
-                        action='store_true')
     parser.add_argument('-g', '--groupsToScale', help='In how many groups split dataset while scaling coverage (0, 1, 2)',
                         default=0)
+    parser.add_argument('-s', '--addNoise', help='How much noise should be added to the y in training set', default=0)
+    parser.add_argument('l', '--lTwoConstant', help='l2 regularisation constant', default=0)
 
     args = parser.parse_args()
 
@@ -229,28 +172,6 @@ def main():
         out_dir += '/'
     data_name = args.dataName
 
-    use_fractions = args.fractions
-
-    if args.includeCoverage:
-        include_coverage = True
-    else:
-        include_coverage = False
-
-    if args.identicalPositions:
-        train_on_identical = True
-        percent_identical = float(args.identicalPercent)
-        if use_fractions:
-            raise ValueError('You do not need identical positions while using fractions')
-    else:
-        train_on_identical = False
-        percent_identical = 0
-
-    loss = args.loss
-    if loss not in ['poisson', 'mse']:
-        raise ValueError('Loss function can be only poisson or mse')
-    if use_fractions and loss != 'mse':
-        raise ValueError('Loss function can be only mse while using fractions')
-
     opt = args.optimizer
     if opt not in ['rmsprop', 'adam']:
         raise ValueError('Optimizer can be only rmsprop or adam!')
@@ -261,7 +182,7 @@ def main():
 
     percent_train = float(args.trainPercent)
     if percent_train > 1 or percent_train <= 0:
-        raise ValueError('Training data percent must be 0 < p < 1!')
+        raise ValueError('Training data percent must be 0 < p <= 1!')
     nodes_number = int(args.nodesNumber)
     batch_size = int(args.batchSize)
     nb_epoch = int(args.epochNumber)
@@ -270,6 +191,9 @@ def main():
     if scaling_groups_number not in [0, 1, 2]:
         raise ValueError('Number of groups may be only 0, 1 or 2!')
 
+    l2_reg_const = float(argparse.lTwoConstant)
+    add_noise = float(args.addNoise)
+
     # prepare directory for the results
     # create directory with all results for this dataset
     out_dir += data_name
@@ -277,18 +201,18 @@ def main():
         os.makedirs(out_dir)
     # create directory with train_test result
     additional_string = ''
-    if use_fractions:
-        additional_string += "_fractions"
     if scaling_groups_number > 0:
         additional_string += '_{}scaling'.format(scaling_groups_number)
     if activation == 'softmax':
         additional_string += '_softmax'
-    out_dir += '/train_test_{}nodes_{}epochs_{}coverage_{}identical_{}loss_{}opt{}'.format(nodes_number, nb_epoch,
-                                                                            int(include_coverage),
-                                                                            percent_identical,
-                                                                            loss,
-                                                                            opt,
-                                                                            additional_string)
+    if opt != 'rmsprop':
+        additional_string += '_{}'.format(opt)
+    if l2_reg_const:
+        additional_string += '_l2{}'.format(l2_reg_const)
+    if add_noise > 0:
+        additional_string += '_noise{}'.format(add_noise)
+
+    out_dir += '/train_test_{}nodes_{}epochs{}'.format(nodes_number, nb_epoch, additional_string)
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
     out_dir += '/'
@@ -301,29 +225,24 @@ def main():
         out.write('Number of nodes in hidden layer: {}\n'.format(nodes_number))
         out.write('Number of epochs: {}\n'.format(nb_epoch))
         out.write('Batch size: {}\n'.format(batch_size))
-        out.write('Loss function: {}\n'.format(loss))
+        out.write('Loss function: MSE\n')
         out.write('Optimizer: {}\n'.format(opt))
-        out.write('Input coverage: {}\n'.format(include_coverage))
-        out.write('Include identical positions into training set: {}\n'.format(train_on_identical))
-        if train_on_identical:
-            out.write('Identical rows to be added: {} * nrow(X_train)\n'.format(percent_identical))
-        out.write('Use fractions: {}\n'.format(use_fractions))
         out.write('Scale coverage: {}\n'.format(scaling_groups_number > 0))
         if scaling_groups_number > 0:
             out.write('Split into two groups by coverage: {}\n'.format(scaling_groups_number == 2))
         out.write('Activation function: {}\n'.format(activation))
+        out.write('L2 regularisation constant: {}\n'.format(l2_reg_const))
 
     # fix random
     seed = 1214
     np.random.seed(seed)
 
     # split into sets
-    X_train, X_test, y_train, y_test = split_data(data_dir, data_name, percent_train, seed, include_coverage,
-                                                  train_on_identical, use_fractions, scaling_groups_number,
-                                                  percent_identical)
+    X_train, X_test, y_train, y_test = split_data(data_dir, data_name, percent_train, seed, scaling_groups_number,
+                                                  add_noise)
     # run
-    train_test(X_train, X_test, y_train, y_test, nodes_number, batch_size, nb_epoch, out_dir, data_name,
-               include_coverage, loss, opt, scaling_groups_number, activation)
+    train_test(X_train, X_test, y_train, y_test, nodes_number, batch_size, nb_epoch, out_dir, data_name, opt,
+               scaling_groups_number, activation, l2_reg_const)
 
 
 if __name__ == "__main__":
