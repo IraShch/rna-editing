@@ -211,7 +211,6 @@ def main():
         additional_string += '_l2{}'.format(l2_reg_const)
     if add_noise > 0:
         additional_string += '_noise{}'.format(add_noise)
-
     out_dir += '/train_test_{}nodes_{}epochs{}'.format(nodes_number, nb_epoch, additional_string)
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
