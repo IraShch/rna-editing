@@ -1,20 +1,39 @@
 import copy
 import argparse
+import pandas as pd
+
+
+def calculate_threshold(file_name):
+    data = pd.read_table(file_name)
+    plus = data[data['reference'] == 'A']
+    minus = data[data['reference'] == 'T']
+    plus['noise'] = plus['T'] + plus['C']
+    minus['noise'] = minus['A'] + minus['G']
+    return (plus['noise'].mean() + minus['noise'].mean()) / float(2)
+
 
 parser = argparse.ArgumentParser()
 parser.add_argument('-i', '--dataName', help='name of the dataset', required=True)
 parser.add_argument('-d', '--dataDir', help='directory for data storage', required=True)
+parser.add_argument('-n', '--noise', help='use threshold calculated as average noise', action='store_true')
 args = parser.parse_args()
 data_dir = args.dataDir
 data_name = args.dataName
+use_threshold = args.noise
 
 all_sets = {}
 intersection = {}
 sizes = {}
 
-for j in range(1, 6):
+number_of_files = 5
+
+for j in range(1, number_of_files + 1):
     file_name = data_dir + "{}_{}_adar{}_denoised.tsv".format(data_name, data_name, j)
     print "Read file {}".format(file_name)
+    if use_threshold:
+        threshold = calculate_threshold(file_name)
+    else:
+        threshold = 0
     all_sets[j] = {}
     sizes[j] = 0
 
@@ -35,8 +54,8 @@ for j in range(1, 6):
             if chr not in all_sets[j]:
                 all_sets[j][chr] = set()
 
-            if (reference == 'A' and predicted_values['G'] > 0) or \
-                    (reference == 'T' and predicted_values['C'] > 0):
+            if (reference == 'A' and predicted_values['G'] > threshold) or \
+                    (reference == 'T' and predicted_values['C'] > threshold):
                 all_sets[j][chr].add(pos)
                 sizes[j] += 1
 
@@ -56,8 +75,8 @@ med = 0
 for i in sizes:
     percent = sum_intersection * 100 / float(sizes[i])
     med += percent
-    print "{}: {}%\n".format(i, percent)
-print "Mean percent: {}\n".format(med / float(5))
+    print "{}: {}%".format(i, percent)
+print "Mean percent: {}%\n".format(med / float(5))
 
 for i in range(1, 6):
     for j in range(i+1, 6):
