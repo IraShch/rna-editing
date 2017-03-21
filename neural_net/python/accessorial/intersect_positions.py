@@ -1,14 +1,19 @@
 import copy
+import argparse
 
-data_dir = "/home/schukina/data/results/ICE/stability_test/fractions/ICE_new/" \
-           "train_predict_150nodes_400epochs_1coverage_0identical_mseloss_rmspropopt_fractions/"
+parser = argparse.ArgumentParser()
+parser.add_argument('-i', '--dataName', help='name of the dataset', required=True)
+parser.add_argument('-d', '--dataDir', help='directory for data storage', required=True)
+args = parser.parse_args()
+data_dir = args.dataDir
+data_name = args.dataName
 
 all_sets = {}
 intersection = {}
 sizes = {}
 
 for j in range(1, 6):
-    file_name = data_dir + "ICE_new_ICE_new_adar{}_denoised.tsv".format(j)
+    file_name = data_dir + "{}_{}_adar{}_denoised.tsv".format(data_name, data_name, j)
     print "Read file {}".format(file_name)
     all_sets[j] = {}
     sizes[j] = 0
