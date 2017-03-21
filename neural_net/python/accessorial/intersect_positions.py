@@ -52,6 +52,12 @@ for chr in intersection:
     sum_intersection += len(intersection[chr])
 print "Total intersection: {}".format(sum_intersection)
 print sizes
+med = 0
+for i in sizes:
+    percent = sum_intersection * 100 / float(sizes[i])
+    med += percent
+    print "{}: {}%\n".format(i, percent)
+print "Mean percent: {}\n".format(med / float(5))
 
 for i in range(1, 6):
     for j in range(i+1, 6):
