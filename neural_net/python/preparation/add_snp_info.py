@@ -52,7 +52,7 @@ def make_sets(file_name):
     return chr_dict
 
 
-def add_info(filename, basename, outname, is_clean):
+def add_info(filename, basename, outname, is_clean, only_adar):
     # read all positions from file
     positions = make_sets(filename)
 
@@ -73,67 +73,69 @@ def add_info(filename, basename, outname, is_clean):
                     positions[chrom][pos][strand] += '\tTRUE'
                 else:
                     positions[chrom][pos][strand] += '\tFALSE'
-                # possible APOBEC editing site?
-                if (strand == "+" and reference_base == "C" and T_count > 0) or \
-                        (strand == "-" and reference_base == "G" and A_count > 0):
-                    positions[chrom][pos][strand] += '\tTRUE'
-                else:
-                    positions[chrom][pos][strand] += '\tFALSE'
+                if not only_adar:
+                    # possible APOBEC editing site?
+                    if (strand == "+" and reference_base == "C" and T_count > 0) or \
+                            (strand == "-" and reference_base == "G" and A_count > 0):
+                        positions[chrom][pos][strand] += '\tTRUE'
+                    else:
+                        positions[chrom][pos][strand] += '\tFALSE'
 
-    # iterate over dbSNP
-    is_first = True
-    with open(basename) as dbSNP:
-        delete_chr = False
-        add_chr = False
-        for line in dbSNP:
-            # skip header
-            if line[0] == '#':
-                continue
+    if not only_adar:
+        # iterate over dbSNP
+        is_first = True
+        with open(basename) as dbSNP:
+            delete_chr = False
+            add_chr = False
+            for line in dbSNP:
+                # skip header
+                if line[0] == '#':
+                    continue
 
-            l = line.strip().split('\t')
+                l = line.strip().split('\t')
 
-            # check names consistency in the first line
-            if is_first:
-                is_first = False
-                if positions.keys()[0].startswith('chr') and not l[0].startswith('chr'):
-                    add_chr = True
-                    print "add chr to dbSNP chr names"
-                if not positions.keys()[0].startswith('chr') and l[0].startswith('chr'):
-                    delete_chr = True
+                # check names consistency in the first line
+                if is_first:
+                    is_first = False
+                    if positions.keys()[0].startswith('chr') and not l[0].startswith('chr'):
+                        add_chr = True
+                        print "add chr to dbSNP chr names"
+                    if not positions.keys()[0].startswith('chr') and l[0].startswith('chr'):
+                        delete_chr = True
 
-            # change chr if necessary
-            chrom = l[0]
-            if delete_chr:
-                if chrom == 'chrM':
-                    chrom = 'MT'
-                else:
-                    chrom = chrom[3:]
-            if add_chr:
-                if chrom == 'MT':
-                    chrom = 'chrM'
-                else:
-                    chrom = 'chr' + chrom
+                # change chr if necessary
+                chrom = l[0]
+                if delete_chr:
+                    if chrom == 'chrM':
+                        chrom = 'MT'
+                    else:
+                        chrom = chrom[3:]
+                if add_chr:
+                    if chrom == 'MT':
+                        chrom = 'chrM'
+                    else:
+                        chrom = 'chr' + chrom
 
-            # check if intersection
-            if chrom in positions and int(l[1]) in positions[chrom]:
-                for strand in positions[chrom][int(l[1])]:
-                    current_line = positions[chrom][int(l[1])][strand].split('\t')
-                    if len(current_line) < 12:
-                        if not is_clean:
-                            positions[chrom][int(l[1])][strand] += '\tTRUE'
-                        else:
-                            counts = {'A': float(current_line[4]), 'C': float(current_line[5]),
-                                      'G': float(current_line[6]), 'T': float(current_line[7])}
-                            if current_line[3] == l[3] and counts[l[4]] > 0:
+                # check if intersection
+                if chrom in positions and int(l[1]) in positions[chrom]:
+                    for strand in positions[chrom][int(l[1])]:
+                        current_line = positions[chrom][int(l[1])][strand].split('\t')
+                        if len(current_line) < 12:
+                            if not is_clean:
                                 positions[chrom][int(l[1])][strand] += '\tTRUE'
+                            else:
+                                counts = {'A': float(current_line[4]), 'C': float(current_line[5]),
+                                          'G': float(current_line[6]), 'T': float(current_line[7])}
+                                if current_line[3] == l[3] and counts[l[4]] > 0:
+                                    positions[chrom][int(l[1])][strand] += '\tTRUE'
 
-    # add flags to non-snp positions
-    for chrom in positions:
-        for pos in positions[chrom]:
-            for strand in positions[chrom][pos]:
-                current_line = positions[chrom][pos][strand].split('\t')
-                if len(current_line) < 12:
-                    positions[chrom][pos][strand] += '\tFALSE'
+        # add flags to non-snp positions
+        for chrom in positions:
+            for pos in positions[chrom]:
+                for strand in positions[chrom][pos]:
+                    current_line = positions[chrom][pos][strand].split('\t')
+                    if len(current_line) < 12:
+                        positions[chrom][pos][strand] += '\tFALSE'
 
     # write new lines
     is_first = True
@@ -141,7 +143,10 @@ def add_info(filename, basename, outname, is_clean):
         with open(outname, 'w') as out:
             for line in inp:
                 if is_first:
-                    out.write(line.strip() + '\tcan_be_ADAR_editing\tcan_be_APOBEC_editing\tin_dbsnp\n')
+                    if only_adar:
+                        out.write(line.strip() + '\tcan_be_ADAR_editing\n')
+                    else:
+                        out.write(line.strip() + '\tcan_be_ADAR_editing\tcan_be_APOBEC_editing\tin_dbsnp\n')
                     is_first = False
                     continue
 
@@ -149,7 +154,7 @@ def add_info(filename, basename, outname, is_clean):
                 out.write(positions[l[0]][int(l[1])][l[2]] + '\n')
 
 
-def add_info_nonss(filename, basename, outname, is_clean):
+def add_info_nonss(filename, basename, outname, is_clean, only_adar):
     # read all positions from file
     positions = make_sets_nonss(filename)
 
@@ -170,64 +175,66 @@ def add_info_nonss(filename, basename, outname, is_clean):
             else:
                 positions[chrom][pos] += '\tFALSE'
             # possible APOBEC editing site?
-            if (reference_base == "C" and T_count > 0) or \
-                    (reference_base == "G" and A_count > 0):
-                positions[chrom][pos] += '\tTRUE'
-            else:
-                positions[chrom][pos] += '\tFALSE'
+            if not only_adar:
+                if (reference_base == "C" and T_count > 0) or \
+                        (reference_base == "G" and A_count > 0):
+                    positions[chrom][pos] += '\tTRUE'
+                else:
+                    positions[chrom][pos] += '\tFALSE'
 
     # iterate over dbSNP
-    is_first = True
-    with open(basename) as dbSNP:
-        delete_chr = False
-        add_chr = False
-        for line in dbSNP:
-            # skip header
-            if line[0] == '#':
-                continue
+    if not only_adar:
+        is_first = True
+        with open(basename) as dbSNP:
+            delete_chr = False
+            add_chr = False
+            for line in dbSNP:
+                # skip header
+                if line[0] == '#':
+                    continue
 
-            l = line.strip().split('\t')
+                l = line.strip().split('\t')
 
-            # check names consistency in the first line
-            if is_first:
-                is_first = False
-                if positions.keys()[0].startswith('chr') and not l[0].startswith('chr'):
-                    add_chr = True
-                    print "add chr to dbSNP chr names"
-                if not positions.keys()[0].startswith('chr') and l[0].startswith('chr'):
-                    delete_chr = True
+                # check names consistency in the first line
+                if is_first:
+                    is_first = False
+                    if positions.keys()[0].startswith('chr') and not l[0].startswith('chr'):
+                        add_chr = True
+                        print "add chr to dbSNP chr names"
+                    if not positions.keys()[0].startswith('chr') and l[0].startswith('chr'):
+                        delete_chr = True
 
-            # change chr if necessary
-            chrom = l[0]
-            if delete_chr:
-                if chrom == 'chrM':
-                    chrom = 'MT'
-                else:
-                    chrom = chrom[3:]
-            if add_chr:
-                if chrom == 'MT':
-                    chrom = 'chrM'
-                else:
-                    chrom = 'chr' + chrom
-
-            # check if intersection
-            if chrom in positions and int(l[1]) in positions[chrom]:
-                current_line = positions[chrom][int(l[1])].split('\t')
-                if len(current_line) < 12:
-                    if not is_clean:
-                        positions[chrom][int(l[1])] += '\tTRUE'
+                # change chr if necessary
+                chrom = l[0]
+                if delete_chr:
+                    if chrom == 'chrM':
+                        chrom = 'MT'
                     else:
-                        counts = {'A': float(current_line[4]), 'C': float(current_line[5]),
-                                  'G': float(current_line[6]), 'T': float(current_line[7])}
-                        if current_line[3] == l[3] and counts[l[4]] > 0:
-                            positions[chrom][int(l[1])] += '\tTRUE'
+                        chrom = chrom[3:]
+                if add_chr:
+                    if chrom == 'MT':
+                        chrom = 'chrM'
+                    else:
+                        chrom = 'chr' + chrom
 
-    # add flags to non-snp positions
-    for chrom in positions:
-        for pos in positions[chrom]:
-            current_line = positions[chrom][pos].split('\t')
-            if len(current_line) < 12:
-                positions[chrom][pos] += '\tFALSE'
+                # check if intersection
+                if chrom in positions and int(l[1]) in positions[chrom]:
+                    current_line = positions[chrom][int(l[1])].split('\t')
+                    if len(current_line) < 12:
+                        if not is_clean:
+                            positions[chrom][int(l[1])] += '\tTRUE'
+                        else:
+                            counts = {'A': float(current_line[4]), 'C': float(current_line[5]),
+                                      'G': float(current_line[6]), 'T': float(current_line[7])}
+                            if current_line[3] == l[3] and counts[l[4]] > 0:
+                                positions[chrom][int(l[1])] += '\tTRUE'
+
+        # add flags to non-snp positions
+        for chrom in positions:
+            for pos in positions[chrom]:
+                current_line = positions[chrom][pos].split('\t')
+                if len(current_line) < 12:
+                    positions[chrom][pos] += '\tFALSE'
 
     # write new lines
     is_first = True
@@ -235,7 +242,10 @@ def add_info_nonss(filename, basename, outname, is_clean):
         with open(outname, 'w') as out:
             for line in inp:
                 if is_first:
-                    out.write(line.strip() + '\tcan_be_ADAR_editing\tcan_be_APOBEC_editing\tin_dbsnp\n')
+                    if only_adar:
+                        out.write(line.strip() + '\tcan_be_ADAR_editing\n')
+                    else:
+                        out.write(line.strip() + '\tcan_be_ADAR_editing\tcan_be_APOBEC_editing\tin_dbsnp\n')
                     is_first = False
                     continue
 
@@ -256,6 +266,7 @@ def main():
     input_files.add_argument('-s', '--strandSpecific', help='if the expreiment is strand specific', action='store_true')
     out_files = parser.add_argument_group('output')
     out_files.add_argument('-o', '--outname', help='name of output file', required=True)
+    parser.add_argument('-a', '--adar', help='Only find ADAR sites', action='store_true')
 
     args = parser.parse_args()
 
@@ -263,6 +274,7 @@ def main():
     output_file = args.outname
     is_clean = args.clean
     is_strand_specific = args.strandSpecific
+    only_adar = args.adar
 
     if args.reference == 37:
         if is_clean:
@@ -276,9 +288,9 @@ def main():
             basename = '/home/schukina/data/common/dbSNP38.vcf'
 
     if is_strand_specific:
-        add_info(input_file, basename, output_file, is_clean)
+        add_info(input_file, basename, output_file, is_clean, only_adar)
     else:
-        add_info_nonss(input_file, basename, output_file, is_clean)
+        add_info_nonss(input_file, basename, output_file, is_clean, only_adar)
 
 
 if __name__ == "__main__":
