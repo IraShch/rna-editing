@@ -43,10 +43,10 @@ def split_data(file_name, data_dir, coverage_thr, include_coverage):
     else:
         X = pandas.DataFrame(noise, columns=['A', 'C', 'G', 'T'])
     y = pandas.DataFrame(noise, columns=['A', 'C', 'G', 'T'])
-    y['C'] *= (noise['reference'] == 'C')
-    y['A'] *= (noise['reference'] == 'A')
-    y['T'] *= (noise['reference'] == 'T')
-    y['G'] *= (noise['reference'] == 'G')
+    y['C'] *= (noise['reference'] != 'C')
+    y['A'] *= (noise['reference'] != 'A')
+    y['T'] *= (noise['reference'] != 'T')
+    y['G'] *= (noise['reference'] != 'G')
 
     if include_coverage:
         X.to_csv('{}{}_noise_X_cov.tsv'.format(data_dir, data_name), sep='\t', index=False)
