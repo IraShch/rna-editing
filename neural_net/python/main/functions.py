@@ -44,11 +44,11 @@ def load_training_data(add_noise, data_dir, data_name, scaling_groups_number):
         y['C'] = (y['C'] > 0) * (main_part - additional) + additional
         y['G'] = (y['G'] > 0) * (main_part - additional) + additional
         y['T'] = (y['T'] > 0) * (main_part - additional) + additional
-    # else:
-    #     y['A'] = y['A'] > 0
-    #     y['C'] = y['C'] > 0
-    #     y['G'] = y['G'] > 0
-    #     y['T'] = y['T'] > 0
+    else:
+        y['A'] /= coverage
+        y['C'] /= coverage
+        y['G'] /= coverage
+        y['T'] /= coverage
     #     y = y.astype(int)
 
     print y
