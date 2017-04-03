@@ -1,6 +1,6 @@
 import argparse
 import os
-from main.functions import *
+from functions import *
 
 
 def test_stability(activation, add_noise, args, batch_size, coverage_threshold, data_dir, data_name, l2_reg_const,
