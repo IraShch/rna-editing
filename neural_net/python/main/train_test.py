@@ -143,7 +143,8 @@ def main():
         additional_string += '_noise{}'.format(add_noise)
     if second_layer_nodes > 0:
         additional_string += '_second{}'.format(second_layer_nodes)
-    out_dir += '/train_test_{}nodes_{}epochs{}'.format(nodes_number, nb_epoch, additional_string)
+    out_dir += '/train_test_{}nodes_{}epochs_{}percent{}'.format(nodes_number, nb_epoch, percent_train,
+                                                                 additional_string)
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
     out_dir += '/'
