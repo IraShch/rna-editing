@@ -1,6 +1,5 @@
 import argparse
 import os
-import numpy as np
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
@@ -156,7 +155,7 @@ def main():
 
     # write logs
     log_file = out_dir + 'log_test.txt'
-    write_log(activation, batch_size, data_dir, l2_reg_const, log_file, nb_epoch, nodes_number, opt, percent_train,
+    write_log(activation, batch_size, data_dir, l2_reg_const, log_file, nb_epoch, nodes_number, opt,
               scaling_groups_number, True, second_layer_nodes, percent_train)
 
     # fix random
