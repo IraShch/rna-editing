@@ -96,7 +96,7 @@ def create_model(X_train, y_train, nodes_number, second_layer, batch_size, nb_ep
         model.add(Dense(nodes_number, input_dim=5, init='uniform', activation='tanh', W_regularizer=l2(reg_const)))
     if second_layer > 0:
         model.add(Dense(second_layer, init='uniform', activation='tanh', W_regularizer=l2(reg_const)))
-    model.add(Dense(4, init='uniform', activation=activation, W_regularizer=l2(reg_const)))
+    model.add(Dense(4, init='uniform', activation='sigmoid', W_regularizer=l2(reg_const)))
     model.compile(loss='mse', optimizer=opt, metrics=[mean_residual_noise])
     # learn
     history = model.fit(X_train, y_train, batch_size=batch_size, nb_epoch=nb_epoch, verbose=0,
